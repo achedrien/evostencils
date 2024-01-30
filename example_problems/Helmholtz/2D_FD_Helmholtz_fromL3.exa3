@@ -21,7 +21,7 @@ Field gen_error_u on boundary = applyBC_gen_error_u()
 // RHS fields
 
 // B-Spline approximation of the dirac pulse
-Field RHS@finest with Complex<Real> on Node of global = max(0, -(fabs(vf_nodePos_x - 0.5) - vf_gridWidth_x) / vf_gridWidth_x**2) * max(0, -(fabs(vf_nodePos_y - 0.5) - vf_gridWidth_y) / vf_gridWidth_y**2)
+Field f@finest with Complex<Real> on Node of global = max(0, -(fabs(vf_nodePos_x - 0.5) - vf_gridWidth_x) / vf_gridWidth_x**2) * max(0, -(fabs(vf_nodePos_y - 0.5) - vf_gridWidth_y) / vf_gridWidth_y**2)
 //Field RHS@finest with Complex<Real> on Node of global = 0.0
 
 Field f with Complex<Real> on Node of global
@@ -169,14 +169,14 @@ Function PreconditionedBiCGStab@finest {
     p         = Residual + beta * ( p - omega * ap )
     u = 0
     f = p
-    gen_mgCycle()
+    gen_mgCycle@finest ()
     ap        = A * u
     alpha     = rhoNew / dot ( resHat, ap )
     h         = Solution + alpha * u
     s         = Residual - alpha * ap
     u = 0
     f = s
-    gen_mgCycle()
+    gen_mgCycle@finest ()
     t = A * u
     omega     = dot ( t, s ) / dot ( t, t )
     Solution = h + omega * u
@@ -549,4 +549,63 @@ Function FCycle@coarsest {
     if ( fabs(curRes) < 1e-6 * fabs(initRes)) { return }
   }
 }
+
+Function gen_FASCycle@finest (  ) {
+Smoother@finest (  )
+Smoother@fines (  )
+loop over Residual@finest {
+  Residual@finest = f@finest - ( ( Laplace@finest * Solution@finest ) + ( gamSten@finest * Solution@finest ) )
+}
+apply bc to Residual@finest
+communicate Residual@finest
+loop over Approximation@(finest - 1) {
+  Approximation@(finest - 1) = ( RestrictionNode@finest * Solution@(finest - 1) )
+  Solution@(finest - 1) = Approximation@(finest - 1)
+}
+communicate Approximation@(finest - 1)
+communicate Solution@(finest - 1)
+loop over f@(finest - 1) {
+  f@(finest - 1) = ( ( RestrictionNode@finest * Residual@finest ) + ( ( Laplace@(finest - 1) * Approximation@(finest - 1) ) + ( gamSten@(finest - 1) * Approximation@(finest - 1) ) ) )
+}
+Smoother@(finest - 1) (  )
+Smoother@(finest - 1) (  )
+loop over Residual@(finest - 1) {
+  Residual@(finest - 1) = f@(finest - 1) - ( ( Laplace@(finest - 1) * Solution@(finest - 1) ) + ( gamSten@(finest - 1) * Solution@(finest - 1) ) )
+}
+apply bc to Residual@(finest - 1)
+communicate Residual@(finest - 1)
+loop over Approximation@(finest - 2) {
+  Approximation@(finest - 2) = ( RestrictionNode@(finest - 1) * Solution@(finest - 2) )
+  Solution@(finest - 2) = Approximation@(finest - 2)
+}
+communicate Approximation@(finest - 2)
+communicate Solution@(finest - 2)
+loop over f@(finest - 2) {
+  f@(finest - 2) = ( ( RestrictionNode@(finest - 1) * Residual@(finest - 1) ) + ( ( Laplace@(finest - 2) * Approximation@(finest - 2) ) + ( gamSten@(finest - 2) * Approximation@(finest - 2) ) ) )
+}
+CGS@(finest - 2) (  )
+loop over Solution@(finest - 2) {
+  Solution@(finest - 2) -= Approximation@(finest - 2)
+}
+communicate Solution@(finest - 2)
+loop over Solution@(finest - 1) {
+  Solution@(finest - 1) += ( CorrectionNode@(finest - 2) * Solution@(finest - 2) )
+}
+apply bc to Solution@(finest - 1)
+communicate Solution@(finest - 1)
+Smoother@(finest - 1) (  )
+Smoother@(finest - 1) (  )
+loop over Solution@(finest - 1) {
+  Solution@(finest - 1) -= Approximation@(finest - 1)
+}
+communicate Solution@(finest - 1)
+loop over Solution@finest {
+  Solution@finest += ( CorrectionNode@(finest - 1) * Solution@(finest - 1) )
+}
+apply bc to Solution@finest
+communicate Solution@finest
+Smoother@finest (  )
+Smoother@finest (  )
+}
+
 */

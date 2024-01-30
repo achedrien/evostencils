@@ -4,13 +4,12 @@ from evostencils.code_generation.exastencils import ProgramGenerator
 import os
 import sys
 from mpi4py import MPI
-import evostencils
 
 FAS = True
 
 
 def main():
-    cwd = os.path.dirname(os.path.dirname(evostencils.__file__))
+    cwd = f'/home/algo/gode/gode/evostencils'
     # Path to the ExaStencils compiler
     platform_file = f"{cwd}/example_problems/lib/linux.platform"
     build_path = f"{cwd}/example_problems"
@@ -75,7 +74,7 @@ def main():
                                                 # exastencils_compiler=exastencils_compiler)
         program_generator = ProgramGeneratorFAS('FAS_2D_Basic', 'Solution', 'RHS', 'Residual', 'Approximation',
                                                 'RestrictionNode', 'CorrectionNode',
-                                                'Laplace', 'gamSten', 'mgCycle', 'CGS', 'Smoother', mpi_rank=mpi_rank, platform_file=platform_file, build_path=build_path,
+                                                'Laplace', 'gamSten', 'gen_mgCycle', 'CGS', 'Smoother', mpi_rank=mpi_rank, platform_file=platform_file, build_path=build_path,
                                                 exastencils_compiler=exastencils_compiler)
 
     # Obtain extracted information from program generator

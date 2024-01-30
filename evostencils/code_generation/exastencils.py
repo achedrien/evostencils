@@ -12,7 +12,7 @@ import shutil
 
 
 class CycleStorage:
-    def __init__(self, equations: List[multigrid.EquationInfo], fields: List[sympy.Symbol], grids: List[base.Grid]):
+    def __init__(self, equations: List[multigrid.EquationInfo], fields: List[sympy.Symbol], grids: List[base.Grid], fas=False):
         self.grid = grids
         self.solution = [Field(f'{symbol.name}', g.level, self) for g, symbol in zip(grids, fields)]
         rhs = []
@@ -24,6 +24,7 @@ class CycleStorage:
         self.rhs = rhs
         self.residual = [Field(f'gen_residual_{symbol.name}', g.level, self) for g, symbol in zip(grids, fields)]
         self.correction = [Field(f'gen_error_{symbol.name}', g.level, self) for g, symbol in zip(grids, fields)]
+        self.FASapproximation = [Field(f'Approximation_{symbol.name}', g.level, self) for g, symbol in zip(grids, fields)]
 
 
 class Field:
@@ -37,10 +38,12 @@ class Field:
 
 
 class ProgramGenerator:
-    def __init__(self, absolute_compiler_path: str, base_path: str, settings_path: str, knowledge_path: str,
-                 platform_path: str, mpi_rank=0, solution_equations=None, cycle_name="gen_mgCycle",
-                 model_based_estimation=False, evaluation_timeout=300, code_generation_timeout=300, c_compiler_timeout=120,
-                 solver_iteration_limit=None):
+    def __init__(self, absolute_compiler_path: str, base_path: str,
+                 settings_path: str, knowledge_path: str,
+                 platform_path: str, mpi_rank=0, solution_equations=None,
+                 cycle_name="gen_mgCycle", model_based_estimation=False,
+                 evaluation_timeout=300, code_generation_timeout=300,
+                 c_compiler_timeout=120, solver_iteration_limit=None, fas=False,):
         if isinstance(solution_equations, str):
             solution_equations = [solution_equations]
         self._average_generation_time = 0
@@ -61,6 +64,7 @@ class ProgramGenerator:
         self._mpi_rank = mpi_rank
         self._platform_path = platform_path
         self._cycle_name = cycle_name
+        self._fas = fas
         if model_based_estimation:
             # Due to the inaccuracy of the model-based prediction, 
             # we do not use the jacobi prefix when generating smoothers
@@ -111,7 +115,10 @@ class ProgramGenerator:
 
     @property
     def uses_FAS(self):
-        return False
+        if self._fas:
+            return True
+        else:
+            return False
 
     @property
     def absolute_compiler_path(self):
@@ -301,6 +308,11 @@ class ProgramGenerator:
             return storages[offset].solution[index]
 
     @staticmethod
+    def get_FASapproximation_field(storages: List[CycleStorage], index: int, level: int):
+        offset = storages[0].grid[index].level - level
+        return storages[offset].FASapproximation[index]
+
+    @staticmethod
     def get_rhs_field(storages: List[CycleStorage], index: int, level: int):
         offset = storages[0].grid[index].level - level
         return storages[offset].rhs[index]
@@ -315,10 +327,17 @@ class ProgramGenerator:
         offset = storages[0].grid[index].level - level
         return storages[offset].correction[index]
 
-    def generate_cycle_function(self, expression: base.Expression, storages: List[CycleStorage], min_level: int, level,
-                                max_level: int, use_global_weights=False):
+    def generate_cycle_function(self, expression: base.Expression,
+                                storages: List[CycleStorage], min_level: int,
+                                level, max_level: int, use_global_weights=False):
         program = f'Function {self._cycle_name}@{level} {{\n'
-        program += self.generate_multigrid(expression, storages, min_level, max_level, use_global_weights)
+        #if self.uses_FAS:
+        #    program += self.generate_multigrid_fas(expression, storages, min_level,
+        #                                       max_level, use_global_weights)
+        #else:
+        program += self.generate_multigrid(expression, storages, min_level,
+                                               max_level, use_global_weights,
+                                               self._fas)
         program += '}\n\n'
         for key, value in self._solver_cache.items():
             solver_function = value[0]
@@ -681,8 +700,9 @@ class ProgramGenerator:
             program += f'{indentation}\t(i2 % 3),\n'
         return program
 
-    def generate_multigrid(self, expression: base.Expression, storages: List[CycleStorage], min_level: int,
-                           max_level: int, use_global_weights=False):
+    def generate_multigrid(self, expression: base.Expression,
+                           storages: List[CycleStorage], min_level: int,
+                           max_level: int, use_global_weights=False, fas=False):
         program = ''
         if isinstance(expression, base.Cycle):
             weight = expression.relaxation_factor

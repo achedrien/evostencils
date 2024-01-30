@@ -1,26 +1,11 @@
-testing_enabled       = true
+dimensionality                 = 2
 
-dimensionality						= 2
+minLevel                       = 3
+maxLevel                       = 7
 
-minLevel							= 6
-maxLevel							= 10
-domain_onlyRectangular				= true
-domain_numBlocks					= 4
-domain_numFragmentsPerBlock			= 1
+discr_type                     = "FiniteDifferences"
 
-domain_rect_generate				= true
-domain_rect_numBlocks_x				= 1
-domain_rect_numBlocks_y				= 1
-domain_rect_numBlocks_z				= 1
-domain_rect_numFragsPerBlock_x		= 1
-domain_rect_numFragsPerBlock_y		= 1
-domain_rect_numFragsPerBlock_z		= 1
-
-omp_enabled							= true
-omp_numThreads						= 10
-
-mpi_enabled							= false
-mpi_numThreads						= 9
-
-omp_parallelizeLoopOverFragments	= false
-omp_parallelizeLoopOverDimensions	= true
+// omp parallelization on exactly one fragment in one block
+import '../lib/domain_onePatch.knowledge'
+import '../lib/parallelization_pureOmp.knowledge'
+omp_fixArithmeticReductionOrder = true
