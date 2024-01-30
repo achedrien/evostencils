@@ -11,6 +11,8 @@ from sympy.parsing.sympy_parser import parse_expr
 import itertools
 from functools import reduce
 
+use_hypre = False
+use_hyteg = True
 
 class OperatorInfo:
     def __init__(self, name, level, stencil, operator_type=base.Operator):
@@ -329,6 +331,22 @@ def add_level(pset, terminals: Terminals, types: Types, depth, coarsest=False, F
 
         return smoothing(relaxation_factor_index, partitioning_, generate_jacobi_newton_fixed, cycle)
 
+    if use_hyteg:
+        def SOR(relaxation_factor_index, partitioning_, cycle):
+            return smoothing(relaxation_factor_index, partitioning_, smoother.generate_sor, cycle)
+        def SymmtericSOR(relaxation_factor_index, partitioning_, cycle):
+            return smoothing(relaxation_factor_index, partitioning_, smoother.generate_symmetricsor, cycle)
+        def WeightedJacobi(relaxation_factor_index, partitioning_, cycle):
+            return smoothing(relaxation_factor_index, partitioning_, smoother.generate_weightedjacobi, cycle)
+        def GaussSeidel(relaxation_factor_index, partitioning_, cycle):
+            return smoothing(relaxation_factor_index, partitioning_, smoother.generate_gaussseidel, cycle)
+        def Uzawa(relaxation_factor_index, partitioning_, cycle):
+            return smoothing(relaxation_factor_index, partitioning_, smoother.generate_uzawa, cycle)
+        def SymmetricGaussSeidel(relaxation_factor_index, partitioning_, cycle):
+            return smoothing(relaxation_factor_index, partitioning_, smoother.generate_symmetricgaussseidel, cycle)
+        def Chebyshev(relaxation_factor_index, partitioning_, cycle):
+            return smoothing(relaxation_factor_index, partitioning_, smoother.generate_chebyshev, cycle)
+
     def correct_with_coarse_grid_solver(relaxation_factor_index, prolongation_operator, coarse_grid_solver,
                                         restriction_operator, cycle):
         cycle = restrict(restriction_operator, cycle)
@@ -352,16 +370,27 @@ def add_level(pset, terminals: Terminals, types: Types, depth, coarsest=False, F
     if not scalar_equation:
         add_primitive(pset, decoupled_jacobi, [types.RelaxationFactorIndex, types.Partitioning], [types.C_h, types.C_guard_h], [types.S_h, types.S_guard_h], f"decoupled_jacobi_{depth}")
 
-    # start: Exclude for FAS
-    if not FAS:
-        add_primitive(pset, collective_jacobi, [types.RelaxationFactorIndex, types.Partitioning], [types.C_h, types.C_guard_h], [types.S_h, types.S_guard_h], f"collective_jacobi_{depth}")
-        add_primitive(pset, collective_block_jacobi, [types.RelaxationFactorIndex, types.BlockShape], [types.C_h, types.C_guard_h], [types.S_h, types.S_guard_h], f"collective_block_jacobi_{depth}")
-    # end : Exclude for FAS
-    if FAS:
-        pset.addPrimitive(jacobi_picard, [types.RelaxationFactorIndex, types.Partitioning, types.C_h], types.S_h, f"jacobi_picard_{depth}")
-        pset.addPrimitive(jacobi_picard, [types.RelaxationFactorIndex, types.Partitioning, types.C_guard_h], types.S_guard_h, f"jacobi_picard_{depth}")
-        pset.addPrimitive(jacobi_newton, [types.RelaxationFactorIndex, types.Partitioning, types.NewtonSteps, types.C_h], types.S_h, f"jacobi_newton_{depth}")
-        pset.addPrimitive(jacobi_newton, [types.RelaxationFactorIndex, types.Partitioning, types.NewtonSteps, types.C_guard_h], types.S_guard_h, f"jacobi_newton_{depth}")
+    if use_hypre:
+        add_primitive(pset, jacobi, [types.RelaxationFactorIndex, types.Partitioning], [types.C_h, types.C_guard_h], [types.S_h, types.S_guard_h], f"jacobi_{depth}")
+        add_primitive(pset, GS_forward, [types.RelaxationFactorIndex, types.Partitioning], [types.C_h, types.C_guard_h], [types.S_h, types.S_guard_h], f"GS_forward_{depth}")
+        add_primitive(pset, GS_backward, [types.RelaxationFactorIndex, types.Partitioning], [types.C_h, types.C_guard_h], [types.S_h, types.S_guard_h], f"GS_backward_{depth}")
+    elif use_hyteg:
+        # add/remove smoothers for the optimization here.
+        add_primitive(pset, SOR, [types.RelaxationFactorIndex, types.Partitioning], [types.C_h, types.C_guard_h], [types.S_h, types.S_guard_h], f"sor_{depth}")
+        add_primitive(pset, WeightedJacobi, [types.RelaxationFactorIndex, types.Partitioning], [types.C_h, types.C_guard_h], [types.S_h, types.S_guard_h], f"weightedjacobi_{depth}")
+        add_primitive(pset, GaussSeidel, [types.RelaxationFactorIndex, types.Partitioning], [types.C_h, types.C_guard_h], [types.S_h, types.S_guard_h], f"gauseeidel_{depth}")
+        add_primitive(pset, SymmetricGaussSeidel, [types.RelaxationFactorIndex, types.Partitioning], [types.C_h, types.C_guard_h], [types.S_h, types.S_guard_h], f"symmetricgaussseidel_{depth}")     
+    else:
+        # start: Exclude for FAS
+        if not FAS:
+            add_primitive(pset, collective_jacobi, [types.RelaxationFactorIndex, types.Partitioning], [types.C_h, types.C_guard_h], [types.S_h, types.S_guard_h], f"collective_jacobi_{depth}")
+            add_primitive(pset, collective_block_jacobi, [types.RelaxationFactorIndex, types.BlockShape], [types.C_h, types.C_guard_h], [types.S_h, types.S_guard_h], f"collective_block_jacobi_{depth}")
+        # end : Exclude for FAS
+        if FAS:
+            pset.addPrimitive(jacobi_picard, [types.RelaxationFactorIndex, types.Partitioning, types.C_h], types.S_h, f"jacobi_picard_{depth}")
+            pset.addPrimitive(jacobi_picard, [types.RelaxationFactorIndex, types.Partitioning, types.C_guard_h], types.S_guard_h, f"jacobi_picard_{depth}")
+            pset.addPrimitive(jacobi_newton, [types.RelaxationFactorIndex, types.Partitioning, types.NewtonSteps, types.C_h], types.S_h, f"jacobi_newton_{depth}")
+            pset.addPrimitive(jacobi_newton, [types.RelaxationFactorIndex, types.Partitioning, types.NewtonSteps, types.C_guard_h], types.S_guard_h, f"jacobi_newton_{depth}")
 
     if not coarsest:
         if FAS:

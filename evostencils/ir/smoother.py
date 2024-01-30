@@ -1,6 +1,7 @@
 from evostencils.ir import base, system
 from evostencils.stencils import multiple
-
+# from evostencils.code_generation.hypre import Smoothers as hypre_smoothers
+from evostencils.code_generation.hyteg import Smoothers as hyteg_smoothers
 
 def generate_decoupled_jacobi(operator: system.Operator):
     return system.Diagonal(operator)
@@ -44,3 +45,33 @@ def generate_jacobi_picard(operator: system.Operator):
 
 def generate_jacobi_newton(operator: system.Operator, n_newton_steps: int):
     return base.Addition(system.ElementwiseDiagonal(operator), system.Jacobian(operator, n_newton_steps))
+
+# hyteg smoothers
+def generate_sor(operator: system.Operator):
+    op = system.ElementwiseDiagonal(operator)
+    op.smoother_type = hyteg_smoothers.SOR
+    return op
+def generate_weightedjacobi(operator: system.Operator):
+    op = system.ElementwiseDiagonal(operator)
+    op.smoother_type = hyteg_smoothers.WeightedJacobi
+    return op
+def generate_symmetricsor(operator: system.Operator):
+    op = system.ElementwiseDiagonal(operator)
+    op.smoother_type = hyteg_smoothers.SymmtericSOR
+    return op
+def generate_gaussseidel(operator: system.Operator):
+    op = system.ElementwiseDiagonal(operator)
+    op.smoother_type = hyteg_smoothers.GaussSeidel
+    return op
+def generate_symmetricgaussseidel(operator: system.Operator):
+    op = system.ElementwiseDiagonal(operator)
+    op.smoother_type = hyteg_smoothers.SymmetricGaussSeidel
+    return op
+def generate_chebyshev(operator: system.Operator):
+    op = system.ElementwiseDiagonal(operator)
+    op.smoother_type = hyteg_smoothers.Chebyshev
+    return op
+def generate_uzawa(operator: system.Operator):
+    op = system.ElementwiseDiagonal(operator)
+    op.smoother_type = hyteg_smoothers.Uzawa
+    return op
