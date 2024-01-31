@@ -4,6 +4,7 @@ import os
 import shutil
 import numpy as np
 import os
+import evostencils
 
 from enum import Enum
 class InterGridOperations(Enum):
@@ -34,7 +35,9 @@ class ProgramGenerator:
         self.mpi_rank = mpi_rank
 
         # HYPRE FILES
-        self.template_path = f"{os.getcwd()}/hyteg-build/apps/MultigridStudies"
+        hyteg_study_path = os.path.dirname(os.path.dirname(evostencils.__file__))
+
+        self.template_path = f"{hyteg_study_path}/hyteg-build/apps/MultigridStudies"
         self.problem = "MultigridStudies"
         # generate build path 
         self.build_path = f"{self.template_path}_{self.mpi_rank}/"
@@ -244,7 +247,6 @@ class ProgramGenerator:
                     n_iterations[i] = int(match.group(1))
         
         # if convergence factor is greater than 1, set n_iterations to 1e100
-
         n_iterations = [1e100 if cf > 1 else ni for cf, ni in zip(convergence_factor, n_iterations)]
         return run_time, convergence_factor, n_iterations
     def generate_and_evaluate(self, *args, **kwargs):
