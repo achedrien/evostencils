@@ -13,6 +13,7 @@ import os
 # from mpi4py import MPI
 
 use_hypre=False
+
 def flatten(lst: list):
     return [item for sublist in lst for item in sublist]
 
@@ -105,7 +106,7 @@ class Optimizer:
         self._pset_old = None
         self._storages = None
         self._maximum_local_system_size = 8
-        self._enable_partitioning = False
+        self._enable_partitioning = True
         self.all_fitnesses = []
 
     def reinitialize_code_generation(self, min_level, max_level, program, evaluation_function, evaluation_samples=3,
@@ -190,9 +191,11 @@ class Optimizer:
         self.individual_cache.clear()
 
     def add_individual_to_cache(self, individual, values):
-        for i,ind in enumerate(individual):
-            if len(self.individual_cache) < self._individual_cache_size:
-                self.individual_cache[str(ind)] = values[i]
+        #for i,ind in enumerate(individual):
+        #    if len(self.individual_cache) < self._individual_cache_size:
+        #        self.individual_cache[str(ind)] = values[i]
+        if len(self.individual_cache) < self._individual_cache_size:
+            self.individual_cache[str(individual)] = values
 
     def individual_in_cache(self, individual):
         tmp = str(individual) in self.individual_cache
