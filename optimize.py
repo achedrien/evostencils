@@ -6,9 +6,12 @@ import os
 import sys
 from mpi4py import MPI
 import sympy
-
+import pandas as pd
+import datetime
 
 def main():
+    output_df = pd.DataFrame(columns=["prompt", "convergence_factor", "solving_time", "n_iterations"])
+    output_df.to_pickle("output.pkl")
     cwd = f'{os.getcwd()}'
     eval_software = "hyteg"
     # Path to the ExaStencils compiler
@@ -45,8 +48,10 @@ def main():
     mpi_rank = comm.Get_rank()
     if nprocs > 1:
         tmp = "processes"
+        use_mpi = True
     else:
         tmp = "process"
+        use_mpi = False
     if mpi_rank == 0:
         print(f"Running {nprocs} MPI {tmp}")
 
@@ -55,14 +60,14 @@ def main():
     model_based_estimation = False
 
     # problem specifications
-    flexmg_min_level = 5
-    flexmg_max_level = 9
-    cgs_level = 2
+    flexmg_min_level = 0
+    flexmg_max_level = 4
+    cgs_level = 0
     assert flexmg_min_level < flexmg_max_level
     assert flexmg_min_level >= cgs_level
     assert flexmg_max_level - flexmg_min_level < 5
     problem_name = "2dpoisson"
-    program_generator = ProgramGenerator(flexmg_min_level,flexmg_max_level , mpi_rank, cgs_level)
+    program_generator = ProgramGenerator(flexmg_min_level,flexmg_max_level , mpi_rank, cgs_level, use_mpi=use_mpi)
 
    # Obtain extracted information from program generator
     dimension = 2#program_generator.dimension  # Dimensionality of the problem
@@ -105,7 +110,9 @@ def main():
         # Create directory for checkpoints and output data
         os.makedirs(f'{cwd}/{problem_name}')
     # Path to directory for storing checkpoints
-    checkpoint_directory_path = f'{cwd}/{problem_name}/checkpoints_{mpi_rank}'
+    now = datetime.datetime.now()
+    date_and_time = now.strftime("%d_%m_%y-%H:%M")
+    checkpoint_directory_path = f'{cwd}/{problem_name}/checkpoints_{date_and_time}'
     # Create optimizer object
     optimizer = Optimizer(dimension, finest_grid, coarsening_factors, min_level, max_level, equations, operators, fields,
                           mpi_comm=comm, mpi_rank=mpi_rank, number_of_mpi_processes=nprocs,
@@ -119,7 +126,7 @@ def main():
     levels_per_run = max_level - min_level
     if model_based_estimation:
         # Model-based estimation only feasible for up to 2 levels per run
-        levels_per_run = 2
+        levels_per_run = 1
     assert levels_per_run <= 5, "Can not optimize more than 5 levels"
     # Choose optimization method
     optimization_method = optimizer.NSGAII
@@ -136,20 +143,20 @@ def main():
     # Option to use random search instead of crossover and mutation to create new individuals
     use_random_search = False
 
-    mu_ = 4 # Population size
-    lambda_ = 4 # Number of offspring
-    generations = 4  # Number of generations
-    population_initialization_factor = 1  # Multiply mu_ by this factor to set the initial population size
+    mu_ = 256 # Population size
+    lambda_ = 255 # Number of offspring
+    generations = 500  # Number of generations
+    population_initialization_factor = 1#8  # Multiply mu_ by this factor to set the initial population size
 
     # Number of generations after which a generalization is performed
     # This is achieved by incrementing min_level and max_level within the optimization
     # Such that a larger (and potentially more difficult) instance of the same problem is considered in subsequent generations
-    generalization_interval = 150
-    crossover_probability = 0.7
+    generalization_interval = 1e100
+    crossover_probability = 2/3
     mutation_probability = 1.0 - crossover_probability
-    node_replacement_probability = 0.1  # Probability to perform mutation by altering a single node in the tree
-    evaluation_samples = 1  # Number of evaluation samples
-    maximum_local_system_size = 1  # Maximum size of the local system solved within each step of a block smoother
+    node_replacement_probability = 0.2  # Probability to perform mutation by altering a single node in the tree
+    evaluation_samples = 1 # 32  # Number of evaluation samples
+    maximum_local_system_size = 5  # Maximum size of the local system solved within each step of a block smoother
     # Option to continue from the checkpoint of a previous optimization
     # Warning: So far no check is performed whether the checkpoint is compatible with the current optimization setting
     continue_from_checkpoint = False

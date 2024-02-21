@@ -10,6 +10,8 @@ import math
 import numpy as np
 import time
 import os
+import multiprocessing
+
 # from mpi4py import MPI
 
 use_hypre=False
@@ -717,7 +719,7 @@ class Optimizer:
     def NSGAII(self, pset, initial_population_size, generations, generalization_interval, mu_, lambda_,
                crossover_probability, mutation_probability, min_level, max_level,
                program, storages, solver, evaluation_samples, logbooks, use_random_search=False,
-               model_based_estimation=False, pde_parameter_values=None, checkpoint_frequency=2, checkpoint=None):
+               model_based_estimation=False, pde_parameter_values=None, checkpoint_frequency=1, checkpoint=None):
 
         if pde_parameter_values is None:
             pde_parameter_values = {}
@@ -768,7 +770,7 @@ class Optimizer:
     def NSGAIII(self, pset, initial_population_size, generations, generalization_interval, mu_, lambda_,
                 crossover_probability, mutation_probability, min_level, max_level,
                 program, storages, solver, evaluation_samples, logbooks, use_random_search=False,
-                model_based_estimation=False, pde_parameter_values=None, checkpoint_frequency=2, checkpoint=None):
+                model_based_estimation=False, pde_parameter_values=None, checkpoint_frequency=1, checkpoint=None):
         if pde_parameter_values is None:
             pde_parameter_values = {}
         elif model_based_estimation and self.is_root():
@@ -912,7 +914,7 @@ class Optimizer:
                                     crossover_probability, mutation_probability,
                                     min_level, max_level, solver_program, storages, best_expression, evaluation_samples, logbooks,
                                     model_based_estimation=model_based_estimation, pde_parameter_values=pde_parameter_values,
-                                    checkpoint_frequency=2, checkpoint=tmp, use_random_search=use_random_search)
+                                    checkpoint_frequency=1, checkpoint=tmp, use_random_search=use_random_search)
             if len(pop[0].fitness.values) == 2:
                 pop = sorted(pop, key=lambda ind: estimate_execution_time(ind.fitness.values[0], ind.fitness.values[1]))
                 hof = sorted(hof, key=lambda ind: estimate_execution_time(ind.fitness.values[0], ind.fitness.values[1]))
@@ -940,7 +942,7 @@ class Optimizer:
             if self.is_root():
                 average_runtime, average_convergence_factor, average_number_of_iterations = \
                     self.program_generator.generate_and_evaluate(expression, self._storages, evaluation_min_level, evaluation_max_level, solver_program)
-                print(f'\nMeasurements for best individual - solving time: {average_runtime}, convergence factor: {average_convergence_factor}, '
+                print(f'\nMeasurements for best individual - solving time: {average_runtime} (ms), convergence factor: {average_convergence_factor}, '
                       f'number of iterations: {average_number_of_iterations}')
             solver_program += cycle_function
             self.barrier()
@@ -973,6 +975,7 @@ class Optimizer:
         # print(f'Time: {time_to_solution}, '
         #       f'Convergence factor: {convergence_factor}, '
         #       f'Number of Iterations: {number_of_iterations}', flush=True)
+        
         return time_to_solution, convergence_factor, number_of_iterations
 
     @staticmethod

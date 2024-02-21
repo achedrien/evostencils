@@ -4,8 +4,13 @@ import os
 import shutil
 import numpy as np
 import os
-
+import evostencils
+from mpi4py import MPI
 from enum import Enum
+import pandas as pd
+import time
+import random
+import datetime
 class InterGridOperations(Enum):
     Restriction = -1
     Interpolation = 1
@@ -21,20 +26,21 @@ class Smoothers(Enum):
     Uzawa = 11
     GaussSeidel = 3
     SymmetricGaussSeidel = 9
-    CGS_GE = 9
+    CGS_GE = 15
     NoSmoothing = 0
 
 class ProgramGenerator:
-    def __init__(self,min_level, max_level, mpi_rank=0,cgs_level=0) -> None:
+    def __init__(self,min_level, max_level, mpi_rank=0,cgs_level=0, use_mpi=False) -> None:
         
         # INPUT
         self.min_level = min_level
         self.cgs_level = cgs_level
         self.max_level = max_level
         self.mpi_rank = mpi_rank
-
+        self.use_mpi = use_mpi
         # HYPRE FILES
-        self.template_path = f"{os.getcwd()}/hyteg-build/apps/MultigridStudies"
+        cwd = os.path.dirname(os.path.dirname(evostencils.__file__))
+        self.template_path = f"{cwd}/hyteg-build/apps/MultigridStudies"
         self.problem = "MultigridStudies"
         # generate build path 
         self.build_path = f"{self.template_path}_{self.mpi_rank}/"
@@ -57,6 +63,7 @@ class ProgramGenerator:
         self.num_sweeps = [] # number of sweeps for each smoother.
         self.relaxation_weights = [] # sequence of relaxation factors for each smoother. 
         self.cgc_weights = [] # sequence of relaxations weights at intergrid transfer steps (meant for correction steps, weights in restriction steps is typically set to 1)
+        self.cgs_tolerance = None
 
         #OUTPUT
         self.mgcycle= "" # the command line arguments for MG specification in hyteg.
@@ -79,7 +86,7 @@ class ProgramGenerator:
         expr_type = type(expression).__name__
         cur_lvl = expression.grid[0].level
         list_states = []
-        cur_state = {'level':cur_lvl,'correction_type':None, 'component':None,'relaxation_factor':None}
+        cur_state = {'level':cur_lvl,'correction_type':None, 'component':None,'relaxation_factor':None,'additional_info':None}
         if expr_type == "Cycle" and expression not in self.cycle_objs:
             self.cycle_objs.append(expression)
             list_states = self.traverse_graph(expression.approximation) + self.traverse_graph(expression.correction)
@@ -101,6 +108,7 @@ class ProgramGenerator:
                 cur_state['correction_type'] = CorrectionTypes.Smoothing
                 cur_state['component'] = Smoothers.CGS_GE
                 cur_state['relaxation_factor'] = 1
+                cur_state['additional_info'] = expression.operand1.additional_info
                 list_states.append(cur_state)
             return list_states
         elif "Residual" in expr_type:
@@ -113,6 +121,7 @@ class ProgramGenerator:
         cur_lvl = self.max_level # finest level
         first_state_lvl = self.list_states[0]['level']
         # restrict from the finest level until first_state_lvl is reached
+        n_cgs = 0
         while cur_lvl > first_state_lvl:
             self.smoothers.append(Smoothers.NoSmoothing)
             self.relaxation_weights.append(0)
@@ -126,6 +135,9 @@ class ProgramGenerator:
             assert state_lvl >= cur_lvl
             if state['correction_type']==CorrectionTypes.Smoothing: # smoothing correction
                 if state['component'] == Smoothers.CGS_GE:
+                    if state['additional_info']:
+                        self.cgs_level = state['additional_info']['CGSlvl']
+                        self.cgs_tolerance = state['additional_info']['CGStol']
                     while cur_lvl > self.cgs_level:
                         self.smoothers.append(Smoothers.GaussSeidel)
                         self.num_sweeps.append(1)
@@ -189,7 +201,7 @@ class ProgramGenerator:
         # sum of elements in intergrid_ops is zero, converting the enum to int
         assert sum([i.value for i in self.intergrid_ops]) == 0, "The sum of intergrid operations should be zero"
         # the grid hierarchy should be for self.max_level levels.
-        assert min([sum([i.value for i in self.intergrid_ops[:j+1]]) for j in range(len(self.intergrid_ops))]) + self.max_level -self.cgs_level ==0, "The grid hierarchy should be for self.max_level - self.min_levels"
+        assert min([sum([i.value for i in self.intergrid_ops[:j+1]]) for j in range(len(self.intergrid_ops))]) + self.max_level -self.cgs_level ==0, "The grid hierarchy should be for self.max_level - self.cgs_levels"
         # length of intergrid_ops is one less than length of smoothers
         assert len(self.intergrid_ops) == len(self.smoothers) - 1, "The number of intergrid operations should be one less than the number of nodes in the mg cycle"
         # length of smoothing weights is equal to length of smoothers and num_sweeps
@@ -215,27 +227,52 @@ class ProgramGenerator:
         self.mgcycle.append(list_to_string(self.smoothers))
         self.mgcycle.append("-smootherWeights")
         self.mgcycle.append(list_to_string(self.relaxation_weights))
+        if not self.cgs_tolerance is None:
+            self.mgcycle.append("-coarseGridResidualTolerance")
+            self.mgcycle.append(str(self.cgs_tolerance))
+            self.mgcycle.append("-minLevel")   
+            self.mgcycle.append(str(self.cgs_level))
 
     def execute_code(self, cmd_args=[]):
         # run the code and pass the command line arguments from the input list
-        output = subprocess.run([f"./{self.problem}"] + cmd_args, capture_output=True, text=True, cwd=self.build_path)
+        # output = subprocess.run(["mpiexec", "--map-by", "ppr:1:core", "--bind-to", "core", self.problem] + cmd_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30) # capture_output=True, text=True, cwd=self.build_path, timeout=30)
+        try:
+            if self.use_mpi:
+                comm = MPI.COMM_WORLD
+                nprocs = comm.Get_size() - 1
+                a_lancer = ["mpiexec", "-n", "1", f"{self.build_path}{self.problem}"] + cmd_args
+                #print(" ".join(a_lancer))
+                output = subprocess.run(a_lancer, stdout=subprocess.PIPE) #, preexec_fn=os.setpgrp)
+                
+                output_lines = output.stdout.decode('utf8') #.stdout.
+                #print(output_lines)
+            else:
+                a_lancer = [f"{self.build_path}{self.problem}"] + cmd_args
+                #print(" ".join(a_lancer))
+                output = subprocess.run(a_lancer, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)#capture_output=True, text=True, cwd=self.build_path)
+                output_lines = output.stdout.decode('utf8')
+                #print(output_lines)
+        except subprocess.TimeoutExpired as _:
+            print('time out')
+            return 1e100, 1e100, 1e100
         # check if the code ran successfully
-        if output.returncode != 0:
-            print("error")
-            print(output.args)
+        #if output.returncode != 0:
+        #    print("error")
+        #    print(output_lines)
         # parse the output to extract wall clock time, number of iterations, convergence factor. 
-        output_lines = output.stdout.split('\n')
+        
         run_time = [1e100] * self.n_individuals
         n_iterations =[1e100] * self.n_individuals
         convergence_factor = [1e100] *  self.n_individuals
         i = 0 
+        output_lines = output_lines.split("\n")
         for line in output_lines:
             if "Convergence Factor" in line:
-                match = re.search(r'Convergence Factor:\s*(\d+\.\d+)', line)
+                match = re.search(r'Convergence Factor:\s*([\d.]+(?:e[-+]?\d+)?)', line)
                 if match:
                     convergence_factor[i] = float(match.group(1))
             elif "Solve Time" in line:
-                match = re.search(r'Solve Time:\s*(\d+\.\d+)', line)
+                match = re.search(r'Solve Time:\s*([\d.]+(?:e[-+]?\d+)?)', line)
                 if match:
                     run_time[i]=float(match.group(1))*1000 # convert to milliseconds
             elif "Iterations" in line:
@@ -246,13 +283,24 @@ class ProgramGenerator:
         # if convergence factor is greater than 1, set n_iterations to 1e100
 
         n_iterations = [1e100 if cf > 1 else ni for cf, ni in zip(convergence_factor, n_iterations)]
+
+                
+        df_result = pd.DataFrame(np.array([[" ".join(a_lancer), convergence_factor[0], run_time[0], n_iterations[0]]]),
+                                                    columns=["prompt", "convergence_factor", "solving_time", "n_iterations"])
+        
+        now = datetime.datetime.now()
+        date_and_time = now.strftime("%d_%m_%y-%H:%M:%S:%f")
+        df_result.to_pickle(f'/Users/gode/Documents/evostencils/output_{date_and_time}.pkl')
+        # print(run_time, convergence_factor, n_iterations)
         return run_time, convergence_factor, n_iterations
+
+        
     def generate_and_evaluate(self, *args, **kwargs):
         expression_list = []
         time_solution_list = []
         convergence_factor_list = []
         n_iterations_list = []
-        cmdline_args = [f"MultigridStudies.prm"]
+        cmdline_args = [f"{self.build_path}MultigridStudies.prm"]
         evaluation_samples = 1
         for arg in args:
             # get expression list from the input arguments
