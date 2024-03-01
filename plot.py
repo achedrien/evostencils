@@ -1,5 +1,4 @@
 from evostencils.optimization.program import Optimizer
-from evostencils.code_generation.exastencils import ProgramGenerator
 import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
@@ -11,63 +10,59 @@ import math
 import numpy as np
 import matplotlib.font_manager as font_manager
 from mpi4py import MPI
-from evostencils.code_generation.exastencils_FAS import ProgramGeneratorFAS
+from evostencils.code_generation.hyteg import ProgramGenerator
 from matplotlib.animation import FuncAnimation
+import sympy
+from mpi4py import MPI
 
 def main():
     # TODO adapt to actual path to exastencils project
     dir_name = 'Poisson'
     problem_name = f'2D_FD_{dir_name}_fromL2'
     cwd = os.getcwd()
-    compiler_path = f'{cwd}/../exastencils/Compiler/Compiler.jar'
-    base_path = f'{cwd}/./results'
-
-    # Set up MPI
+    base_path = f'{cwd}/./2dpoisson' #version_hyteg_01_03_2dpoisson' #data_90' #00'
     comm = MPI.COMM_WORLD
     nprocs = comm.Get_size()
     mpi_rank = comm.Get_rank()
+    if nprocs > 1:
+        tmp = "processes"
+        use_mpi = True
+    else:
+        tmp = "process"
+        use_mpi = False
+    # problem specifications
+    flexmg_min_level = 0
+    flexmg_max_level = 4
+    cgs_level = 0
+    assert flexmg_min_level < flexmg_max_level
+    assert flexmg_min_level >= cgs_level
+    assert flexmg_max_level - flexmg_min_level < 5
+    problem_name = "2dpoisson"
+    program_generator = ProgramGenerator(flexmg_min_level,flexmg_max_level , mpi_rank=0, cgs_level=cgs_level, use_mpi=False)
 
-    # Create program generator object
-    program_generator = ProgramGeneratorFAS('FAS_2D_Basic', 'Solution', 'RHS', 'Residual', 'Approximation',
-                                            'RestrictionNode', 'CorrectionNode',
-                                            'Laplace', 'gamSten', 'mgCycle', 'CGS', None, mpi_rank=mpi_rank)
+    checkpoint_directory_path = f'{cwd}/{problem_name}/checkpoints_01_03_24-10:02 ' #checkpoints_01_03_24-11:48'
+    optimizer = Optimizer(flexmg_min_level, flexmg_max_level, mpi_comm=comm, mpi_rank=mpi_rank, number_of_mpi_processes=nprocs,
+                          program_generator=program_generator, checkpoint_directory_path=checkpoint_directory_path)
 
-    # Obtain extracted information from program generator
-    dimension = program_generator.dimension  # Dimensionality of the problem
-    finest_grid = program_generator.finest_grid  # Representation of the finest grid
-    coarsening_factors = program_generator.coarsening_factor
-    min_level = program_generator.min_level  # Minimum discretization level
-    max_level = program_generator.max_level  # Maximum discretization level
-    equations = program_generator.equations  # System of PDEs in SymPy
-    operators = program_generator.operators  # Discretized differential operators
-    fields = program_generator.fields  # Variables that occur within system of PDEs
-    infinity = 1e100  # Upper limit that is considered infinite
-    epsilon = 1e-12  # Lower limit that is considered zero
-    convergence_evaluator = None
-    performance_evaluator = None
-    problem_name = program_generator.problem_name
-    checkpoint_directory_path = f'{cwd}/{problem_name}/checkpoints_{mpi_rank}'
-
-    # Create optimizer object
-    optimizer = Optimizer(dimension, finest_grid, coarsening_factors, min_level, max_level, equations, operators, fields,
-                          mpi_comm=comm, mpi_rank=mpi_rank, number_of_mpi_processes=nprocs,
-                          program_generator=program_generator,
-                          convergence_evaluator=convergence_evaluator,
-                          performance_evaluator=performance_evaluator,
-                          epsilon=epsilon, infinity=infinity, checkpoint_directory_path=checkpoint_directory_path)
-
-    plot_fitnesses(optimizer, base_path)
+    plot_pareto_front(optimizer, base_path=base_path, number_of_experiments=1)
+    # plot_individuals(base_path=base_path, number_of_experiments=101)
+    plot_minimum_number_of_iterations(optimizer, base_path=base_path, number_of_experiments=1)
+    plot_minimum_runtime_per_iteration(optimizer, base_path=base_path, number_of_experiments=1)
+    plot_solving_time(optimizer, base_path=base_path, number_of_experiments=1, min_generation=0, max_generation=250, type="min")
+    plot_solving_time_with_variance(base_path=base_path, start=0, number_of_experiments=1)
+    plot_average_solving_time(base_path=base_path, number_of_experiments=1)
 
 
 def plot_fitnesses(experiment_folder):
     # unpickle fitnesses
     with open(f'{experiment_folder}/fitnesses.p', 'rb') as file:
         fitness_history = pickle.load(file)
-    
+    print(fitness_history)
     fig, ax = plt.subplots()
     
     def update(generation):
         fitnesses = fitness_history[generation]
+        print(fitnesses)
         ax.clear()
         # add point for v_cycle
         ax.scatter(v_cycle[0], v_cycle[1], color='red', marker='x')
@@ -111,7 +106,7 @@ def plot_fitnesses(experiment_folder):
       
     # animate
     anim = FuncAnimation(fig, update, frames=range(0, len(fitness_history)))
-    anim.show()
+    plt.show()
 
 def plot_pareto_front(optimizer, base_path='./', number_of_experiments=1):
     def get_total_execution_time(convergence_factor, execution_time_per_iteration):
@@ -137,18 +132,26 @@ def plot_pareto_front(optimizer, base_path='./', number_of_experiments=1):
     hofs = []
     front = []
     global_hof = tools.ParetoFront()
+    
     for i in range(1, number_of_experiments + 1):
-        pop = optimizer.load_data_structure(f'{base_path}/data_{i}/pop_0.p')
+        try:
+            pop = optimizer.load_data_structure(f'{base_path}/data_{i}/pop_0.p')
+            if pop[0].fitness.values[1] == 1.0 or pop[0].fitness.values[0] == 1e100:
+                raise FileNotFoundError
+        except FileNotFoundError:
+            pop = optimizer.load_data_structure(f'{base_path}/data_91/pop_0.p')
         hof = tools.ParetoFront()
         hof.update(pop)
         hofs.append(hof)
         front += [(ind.fitness.values[0], get_execution_time(ind.fitness.values[0], ind.fitness.values[1]), 1) for ind in hof]
         global_hof.update(pop)
+        
 
     global_front = [(ind.fitness.values[0], get_execution_time(ind.fitness.values[0], ind.fitness.values[1]), 'red') for ind in global_hof]
     columns = ['Convergence Factor', 'Execution Time per Iteration (ms)', 'Experiment']
     df1 = pd.DataFrame(front, columns=columns)
     df2 = pd.DataFrame(global_front, columns=columns)
+    print(df1, df2)
     rc('text', usetex=False)
     sns.set_context("paper")
     sns.set_style('ticks', {'font.family': 'serif', 'font.serif': 'Times New Roman'})
@@ -162,10 +165,12 @@ def plot_pareto_front(optimizer, base_path='./', number_of_experiments=1):
     sns.lineplot(x=columns[0], y=columns[1], color='red',
                  data=df2, legend=False,
                  ax=ax)
-    plt.xlim(0, 0.8)
-    plt.ylim(0, 0.1)
+    plt.xlim(1e-13, 1) #0.8)
+    plt.ylim(0, 25) #0.1)
+    plt.xscale('log')
     # plt.tight_layout()
     plt.savefig(f"{base_path}/pareto-front-per-iteration.pdf", dpi=300)
+    plt.close()
 
 
 def plot_individuals(base_path, number_of_experiments):
@@ -185,6 +190,7 @@ def plot_individuals(base_path, number_of_experiments):
     sns.scatterplot(x=columns[0], y=columns[1], data=df, legend=False)
     plt.tight_layout()
     plt.savefig(f"{base_path}/individuals.pdf", dpi=300)
+    plt.close()
 
 
 def plot_minimum_number_of_iterations(optimizer, base_path='./', number_of_experiments=1):
@@ -192,7 +198,7 @@ def plot_minimum_number_of_iterations(optimizer, base_path='./', number_of_exper
     for i in range(1, number_of_experiments + 1):
         log = optimizer.load_data_structure(f'{base_path}/data_{i}/log_0.p')
         minimum_iterations = log.chapters["number_of_iterations"].select("min")
-        stats = [(gen + 1, iterations, i + 1) for gen, iterations in enumerate(minimum_iterations) if iterations < 10000]
+        stats = [(gen + 1, runtime, i + 1) for gen, runtime in enumerate(minimum_iterations) if runtime < 10000 and runtime != 1.0]
         data += stats
     columns = ['Generation', 'Minimum Number of Iterations', 'Experiment']
     df = pd.DataFrame(data, columns=columns)
@@ -213,6 +219,7 @@ def plot_minimum_number_of_iterations(optimizer, base_path='./', number_of_exper
     # plt.xlim(0, 35)
     plt.tight_layout()
     plt.savefig(f"{base_path}/minimum-iterations.pdf", dpi=300)
+    plt.close()
 
 
 def plot_minimum_runtime_per_iteration(optimizer, base_path='./', number_of_experiments=1):
@@ -220,10 +227,11 @@ def plot_minimum_runtime_per_iteration(optimizer, base_path='./', number_of_expe
     for i in range(1, number_of_experiments + 1):
         log = optimizer.load_data_structure(f'{base_path}/data_{i}/log_0.p')
         minimum_runtime = log.chapters["execution_time"].select("min")
-        stats = [(gen + 1, runtime, i + 1) for gen, runtime in enumerate(minimum_runtime) if runtime < 10000]
+        stats = [(gen + 1, runtime, i + 1) for gen, runtime in enumerate(minimum_runtime) if runtime < 10000 and runtime != 1.0]
         data += stats
     columns = ['Generation', 'Minimum Execution Time per Iteration (ms)', 'Experiment']
     df = pd.DataFrame(data, columns=columns)
+    
     rc('text', usetex=True)
     sns.set_context("paper")
     sns.set_style('ticks', {'font.family': 'serif', 'font.serif': 'Times New Roman'})
@@ -238,8 +246,9 @@ def plot_minimum_runtime_per_iteration(optimizer, base_path='./', number_of_expe
     # sns.relplot(x=columns[0], y=columns[1], hue=columns[3], style=columns[2],
     #             data=df, kind='line', markers=['o', 'X', 's'], dashes=False, palette=palette)
     # plt.xlim(0, 35)
-    plt.tight_layout()
+    # plt.tight_layout()
     plt.savefig(f"{base_path}/minimum-runtime-per-iteration.pdf", dpi=300)
+    plt.close()
 
 
 def plot_solving_time(optimizer, base_path='./', file_name=None, number_of_experiments=1, min_generation=0, max_generation=70, type="min"):
@@ -252,7 +261,7 @@ def plot_solving_time(optimizer, base_path='./', file_name=None, number_of_exper
         stats = [(gen + 1, tmp, i) for gen, tmp in enumerate(convergence_factor)]
         data_convergence += stats
         minimum_runtime = log.chapters["execution_time"].select(type)
-        stats = [(gen + 1, runtime, i) for gen, runtime in enumerate(minimum_runtime) if runtime < 10000]
+        stats = [(gen + 1, runtime, i + 1) for gen, runtime in enumerate(minimum_runtime) if runtime < 10000 and runtime != 1.0]
         data_runtime += stats
     columns_convergence = ['Generation', 'Minimum Convergence Factor', 'Experiment']
     df_convergence = pd.DataFrame(data_convergence, columns=columns_convergence)
@@ -273,7 +282,8 @@ def plot_solving_time(optimizer, base_path='./', file_name=None, number_of_exper
     #   ax.tick_params(axis='y', which='both', direction='out', length=4, left=True)
     #  ax.grid(b=True, which='both', color='gray', linewidth=0.1)
     # ax.yaxis.set_tick_params(which='minor', right='off') 
-    # plt.ylim(0, 0.025)
+    ax1.set_ylim(0, 0.025)
+    ax2.set_ylim(0, 25)
     # plt.title("mu=256,lambda=256,crossover=0.9,pop_init=8")
     # sns.relplot(x=columns[0], y=columns[1], hue=columns[3], style=columns[2],
     #             data=df, kind='line', markers=['o', 'X', 's'], dashes=False, palette=palette)
@@ -282,6 +292,7 @@ def plot_solving_time(optimizer, base_path='./', file_name=None, number_of_exper
     if file_name is None:
         file_name = f'{base_path}/{type}-objectives.pdf'
     plt.savefig(file_name, dpi=300)
+    plt.close()
 
 
 def plot_solving_time_with_variance(base_path='./', file_name=None, start=0, number_of_experiments=10):
@@ -309,7 +320,7 @@ def plot_solving_time_with_variance(base_path='./', file_name=None, start=0, num
     plt.tight_layout()
     fig, axes = plt.subplots(2, 1, figsize=(8, 8))
     plt.subplots()
-    fig.suptitle("mu=64,lambda=64,crossover=0.9,pop_init=4,elitism=off", fontsize=16)
+    # fig.suptitle("mu=64,lambda=64,crossover=0.9,pop_init=4,elitism=off", fontsize=16)
     palette = sns.color_palette("colorblind", n_colors=len(elitism_factor))
     # axes[0].set_xlim([0, 50])
     # axes[0].set_ylim([0, 75])
@@ -320,12 +331,13 @@ def plot_solving_time_with_variance(base_path='./', file_name=None, start=0, num
 
     if file_name is None:
         file_name = f'{base_path}/data_{start}/solving-time.pdf'
-    fig.savefig(file_name, quality=100, dpi=300)
+    fig.savefig(file_name, dpi=300)
+    plt.close()
 
 
 def plot_average_solving_time(base_path='./', file_name=None, number_of_experiments=10, min_generation=0, max_generation=250):
     data = []
-
+    fig, ax = plt.subplots()
     def get_total_execution_time(convergence_factor, execution_time_per_iteration):
         infinity = 1e100
         res_reduction_factor = 1e-10
@@ -357,13 +369,13 @@ def plot_average_solving_time(base_path='./', file_name=None, number_of_experime
     # sns.relplot(x=columns[0], y=columns[1], hue=columns[3], style=columns[2],
     #             data=df, kind='line', markers=['o', 'X', 's'], dashes=False, palette=palette)
     plt.xlim(0, 250)
-    plt.ylim(0, 0.4)
+    plt.ylim(0, 0.025)
     # sns.move_legend(a, loc='upper right')
     plt.tight_layout()
     if file_name is None:
         file_name = "conv-time.pdf"
     plt.savefig(f'{base_path}/{file_name}', dpi=300)
-
+    plt.close()
 
 if __name__ == "__main__":
     main()

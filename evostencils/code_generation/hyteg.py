@@ -290,7 +290,7 @@ class ProgramGenerator:
         
         now = datetime.datetime.now()
         date_and_time = now.strftime("%d_%m_%y-%H:%M:%S:%f")
-        df_result.to_pickle(f'/Users/gode/Documents/evostencils/output_{date_and_time}.pkl')
+        # df_result.to_pickle(f'/Users/gode/Documents/evostencils/output_{date_and_time}.pkl')
         # print(run_time, convergence_factor, n_iterations)
         return run_time, convergence_factor, n_iterations
 
