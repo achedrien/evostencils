@@ -179,7 +179,7 @@ class Optimizer:
 
     @staticmethod
     def _init_creator():
-        creator.create("MultiObjectiveFitness", deap.base.Fitness, weights=(-1.0, -5.0))
+        creator.create("MultiObjectiveFitness", deap.base.Fitness, weights=(-1.0, -1.0))
         creator.create("MultiObjectiveIndividual", gp.PrimitiveTree,
                        fitness=creator.MultiObjectiveFitness)
         creator.create("SingleObjectiveFitness", deap.base.Fitness, weights=(-1.0,))
@@ -519,7 +519,7 @@ class Optimizer:
         self._total_number_of_evaluations += len(individual)
         self._total_evaluation_time += end - start
         fitness_calc = list(average_convergence_factor), list(
-            average_time_to_convergence) #/ average_number_of_iterations)
+            average_time_to_convergence / average_number_of_iterations)
         fitness_calc = list(zip(*fitness_calc))
         for i, fit in zip(non_none_indices, fitness_calc):
             if fit[0] >= 1:
