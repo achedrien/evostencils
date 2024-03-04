@@ -9,9 +9,20 @@ import sympy
 import pandas as pd
 import datetime
 
+banner = """
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+░        ░░  ░░░░  ░░░      ░░░░      ░░░        ░░        ░░   ░░░  ░░░      ░░░        ░░  ░░░░░░░░░      ░░
+▒  ▒▒▒▒▒▒▒▒  ▒▒▒▒  ▒▒  ▒▒▒▒  ▒▒  ▒▒▒▒▒▒▒▒▒▒▒  ▒▒▒▒▒  ▒▒▒▒▒▒▒▒    ▒▒  ▒▒  ▒▒▒▒  ▒▒▒▒▒  ▒▒▒▒▒  ▒▒▒▒▒▒▒▒  ▒▒▒▒▒▒▒
+▓      ▓▓▓▓▓  ▓▓  ▓▓▓  ▓▓▓▓  ▓▓▓      ▓▓▓▓▓▓  ▓▓▓▓▓      ▓▓▓▓  ▓  ▓  ▓▓  ▓▓▓▓▓▓▓▓▓▓▓  ▓▓▓▓▓  ▓▓▓▓▓▓▓▓▓      ▓▓
+█  ██████████    ████  ████  ████████  █████  █████  ████████  ██    ██  ████  █████  █████  ██████████████  █
+█        █████  ██████      ████      ██████  █████        ██  ███   ███      ███        ██        ███      ██
+██████████████████████████████████████████████████████████████████████████████████████████████████████████████
+"""
+
 def main():
     # output_df = pd.DataFrame(columns=["prompt", "convergence_factor", "solving_time", "n_iterations"])
     # output_df.to_pickle("output.pkl")
+    print(banner)
     cwd = f'{os.getcwd()}'
     eval_software = "hyteg"
 
@@ -45,7 +56,7 @@ def main():
     # Path to directory for storing checkpoints
     now = datetime.datetime.now()
     date_and_time = now.strftime("%d_%m_%y-%H:%M")
-    checkpoint_directory_path = f'{cwd}/{problem_name}/checkpoints_{date_and_time}'
+    checkpoint_directory_path = f'{cwd}/{problem_name}/checkpoints_04_03_24-15:30' # checkpoints_{date_and_time}'
     # Create optimizer object
     optimizer = Optimizer(flexmg_min_level, flexmg_max_level, mpi_comm=comm, mpi_rank=mpi_rank, number_of_mpi_processes=nprocs,
                           program_generator=program_generator, checkpoint_directory_path=checkpoint_directory_path)
@@ -56,7 +67,7 @@ def main():
 
     mu_ = 256#6 # Population size
     lambda_ = 256 #32#6 # Number of offspring
-    generations = 25 # 0 # Number of generations
+    generations = 250 # 0 # Number of generations
     population_initialization_factor = 8  # Multiply mu_ by this factor to set the initial population size
     generalization_interval = 1e100
     crossover_probability = 2/3
@@ -64,7 +75,7 @@ def main():
     node_replacement_probability = 0.2  # Probability to perform mutation by altering a single node in the tree
     evaluation_samples = 1 # 32  # Number of evaluation samples
     maximum_local_system_size = 8  # Maximum size of the local system solved within each step of a block smoother
-    continue_from_checkpoint = False
+    continue_from_checkpoint = True # False
     lambda_prime = int(lambda_ / nprocs)
  
     program, dsl_code, pops, stats, hofs, fitnesses = optimizer.evolutionary_optimization(optimization_method=optimization_method,
