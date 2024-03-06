@@ -22,7 +22,7 @@ banner = """
 def main():
     # output_df = pd.DataFrame(columns=["prompt", "convergence_factor", "solving_time", "n_iterations"])
     # output_df.to_pickle("output.pkl")
-    print(banner)
+    
     cwd = f'{os.getcwd()}'
     eval_software = "hyteg"
 
@@ -38,6 +38,7 @@ def main():
         use_mpi = False
     if mpi_rank == 0:
         print(f"Running {nprocs} MPI {tmp}")
+        print(banner)
 
     # problem specifications
     flexmg_min_level = 0
@@ -56,7 +57,7 @@ def main():
     # Path to directory for storing checkpoints
     now = datetime.datetime.now()
     date_and_time = now.strftime("%d_%m_%y-%H:%M")
-    checkpoint_directory_path = f'{cwd}/{problem_name}/checkpoints_04_03_24-15:30' # checkpoints_{date_and_time}'
+    checkpoint_directory_path = f'{cwd}/{problem_name}/checkpoints_01_03_24-14:31' # checkpoints_{date_and_time}'
     # Create optimizer object
     optimizer = Optimizer(flexmg_min_level, flexmg_max_level, mpi_comm=comm, mpi_rank=mpi_rank, number_of_mpi_processes=nprocs,
                           program_generator=program_generator, checkpoint_directory_path=checkpoint_directory_path)
@@ -65,8 +66,8 @@ def main():
     optimization_method = optimizer.NSGAII
 
 
-    mu_ = 256#6 # Population size
-    lambda_ = 256 #32#6 # Number of offspring
+    mu_ = 2048#6 # Population size
+    lambda_ = 2048 #32#6 # Number of offspring
     generations = 250 # 0 # Number of generations
     population_initialization_factor = 8  # Multiply mu_ by this factor to set the initial population size
     generalization_interval = 1e100
