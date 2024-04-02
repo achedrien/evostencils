@@ -5,14 +5,11 @@ This module contains the necessary tools to interract with hyteg
 
 import subprocess
 import re
-from statistics import mean
 import os
 import shutil
-import evostencils
-import numpy as np
-from mpi4py import MPI
 from enum import Enum
-
+import numpy as np
+import evostencils
 
 class InterGridOperations(Enum):
     """
@@ -57,6 +54,7 @@ class ProgramGenerator:
         cwd = os.path.dirname(os.path.dirname(evostencils.__file__))
         self.template_path = f"{cwd}/hyteg-build/apps/MultigridStudies"
         self.problem = "MultigridStudies"
+        self.uses_FAS = False
         # generate build path
         self.build_path = f"{self.template_path}_{self.mpi_rank}/"
         os.makedirs(self.build_path,exist_ok=True)
@@ -158,7 +156,7 @@ class ProgramGenerator:
         cur_lvl = self.max_level # finest level
         first_state_lvl = self.list_states[0]['level']
         # restrict from the finest level until first_state_lvl is reached
-        n_cgs = 0
+        # n_cgs = 0
         while cur_lvl > first_state_lvl:
             self.smoothers.append(Smoothers.NoSmoothing)
             self.relaxation_weights.append(0)
@@ -229,7 +227,7 @@ class ProgramGenerator:
                 elif next_state_lvl == cur_lvl and state['correction_type'] == \
                     next_state_correction_type == CorrectionTypes.Smoothing:
                     self.intergrid_ops.append(InterGridOperations.AltSmoothing)
-                    self.cgc_weights.append(0) 
+                    self.cgc_weights.append(0)
             elif index == len(self.list_states)-1:
                 if state['correction_type']==CorrectionTypes.CoarseGridCorrection:
                     self.smoothers.append(Smoothers.NoSmoothing)
@@ -245,7 +243,7 @@ class ProgramGenerator:
         assert sum([i.value for i in self.intergrid_ops]) == 0, \
             "The sum of intergrid operations should be zero"
         # the grid hierarchy should be for self.max_level levels.
-        assert min([sum([i.value for i in self.intergrid_ops[:j+1]]) 
+        assert min([sum([i.value for i in self.intergrid_ops[:j+1]])
                     for j in range(len(self.intergrid_ops))]) \
                         + self.max_level -self.cgs_level ==0, \
                             "The grid hierarchy should be for self.max_level - self.cgs_levels"
@@ -283,7 +281,7 @@ class ProgramGenerator:
         if not self.cgs_tolerance is None:
             self.mgcycle.append("-coarseGridResidualTolerance")
             self.mgcycle.append(str(self.cgs_tolerance))
-            self.mgcycle.append("-minLevel")   
+            self.mgcycle.append("-minLevel")
             self.mgcycle.append(str(self.cgs_level))
 
     def execute_code(self, cmd_args=None):
@@ -415,13 +413,27 @@ class ProgramGenerator:
         self.list_states = self.traverse_graph(expression)
         self.set_mginputs()
         self.generate_cmdline_args()
-        return str(self.mgcycle)
+        return self.mgcycle  # str(self.mgcycle)
 
     # dummy functions to maintain compatibility in the optimisation pipeline
     def generate_storage(self, *args):
+        """
+        Generate the storage based on the given arguments.
+        
+        Args:
+            *args: Variable length argument list.
+        
+        Returns:
+            list: The generated storage.
+        """
         empty_list = []
         return empty_list
 
     def initialize_code_generation(self, *args):
+        """
+        Initialize the code generation based on the given arguments.
+        
+        Args:
+            *args: Variable length argument list.
+        """
         pass
-
