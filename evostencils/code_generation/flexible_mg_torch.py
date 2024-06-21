@@ -73,6 +73,8 @@ class FlexibleMGTorch(nn.Module):
             if operator == -1:
                 if smoothers[i] == 1:
                     udictionary[levels] = self.weighted_jacobi_smoother(udictionary[levels], fdictionary[levels], stencil, weights[i])
+                elif smoothers[i] == 2:
+                    udictionary[levels] = self.cgs(udictionary[levels], fdictionary[levels])
                 conv_holder = F.conv2d(udictionary[levels], (1 / (1 / np.shape(udictionary[levels])[-1])**2) * stencil, padding=0)
                 conv_holder = F.pad(conv_holder, (1, 1, 1, 1), "constant", 0)
                 residual = fdictionary[levels] - conv_holder
@@ -82,12 +84,14 @@ class FlexibleMGTorch(nn.Module):
             elif operator == 1:
                 if smoothers[i] == 1:
                     udictionary[levels] = self.weighted_jacobi_smoother(udictionary[levels], fdictionary[levels], stencil, weights[i])
+                elif smoothers[i] == 2:
+                    udictionary[levels] = self.cgs(udictionary[levels], fdictionary[levels])
                 udictionary[levels + 1] += self.prolongate(udictionary[levels])
                 levels += 1
             else:
                 if smoothers[i] == 1:
                     udictionary[levels] = self.weighted_jacobi_smoother(udictionary[levels], fdictionary[levels], stencil, weights[i])
-                elif smoothers[i] == 0:
+                elif smoothers[i] == 2:
                     udictionary[levels] = self.cgs(udictionary[levels], fdictionary[levels])
         return udictionary[levels]
 

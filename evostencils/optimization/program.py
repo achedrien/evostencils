@@ -10,7 +10,10 @@ import math
 import numpy as np
 import time
 import os
+import sympy
 # from mpi4py import MPI
+
+use_hypre = False
 
 
 def flatten(lst: list):
@@ -65,11 +68,39 @@ def load_checkpoint_from_file(filename):
 
 
 class Optimizer:
-    def __init__(self, dimension, finest_grid, coarsening_factor, min_level, max_level, equations, operators, fields,
-                 program_generator, convergence_evaluator=None, performance_evaluator=None,
+    def __init__(self, min_level, max_level, program_generator,
                  mpi_comm=None, mpi_rank=0, number_of_mpi_processes=1,
                  epsilon=1e-12, infinity=1e100, checkpoint_directory_path='./'):
         assert program_generator is not None, "At least a program generator must be available"
+
+         # ------------dummy inputs: deprecated and code needs refactoring--------------
+
+        # Obtain extracted information from program generator
+        dimension = 2#program_generator.dimension  # Dimensionality of the problem
+        finest_grid = 'u'#program_generator.finest_grid  # Representation of the finest grid
+        coarsening_factor = [2,2]#program_generator.coarsening_factor
+        min_level = program_generator.min_level  # Minimum discretization level
+        max_level = program_generator.max_level  # Maximum discretization level
+        equations = [] #program_generator.equations  # System of PDEs in SymPy
+        operators = [] #program_generator.operators  # Discretized differential operators
+        fields = [sympy.Symbol('u')] #program_generator.fields  # Variables that occur within system of PDEs
+        for i in range(min_level, max_level + 1):
+            equations.append(multigrid_initialization.EquationInfo('solEq', i, f"( Laplace@{i} * u@{i} ) == RHS_u@{i}"))
+            operators.append(multigrid_initialization.OperatorInfo('RestrictionNode', i, None, base.Restriction))
+            operators.append(multigrid_initialization.OperatorInfo('ProlongationNode', i, None, base.Prolongation))
+            operators.append(multigrid_initialization.OperatorInfo('Laplace', i, None, base.Operator))
+        size = 2 ** max_level
+        grid_size = tuple([size] * dimension)
+        h = 1 / (2 ** max_level)
+        step_size = tuple([h] * dimension)
+        tmp = tuple([2] * dimension)
+        coarsening_factor = [tmp for _ in range(len(fields))]
+        finest_grid = [base.Grid(grid_size, step_size, max_level) for _ in range(len(fields))]
+        convergence_evaluator = None
+        performance_evaluator = None
+
+        # --------------------------------------------------------------------------------
+
         self._dimension = dimension
         self._finest_grid = finest_grid
         solution_entries = [base.Approximation(f.name, g) for f, g in zip(fields, finest_grid)]
@@ -105,7 +136,8 @@ class Optimizer:
         self._pset_old = None
         self._storages = None
         self._maximum_local_system_size = 8
-        self._enable_partitioning = True
+        self._enable_partitioning = False
+        self.all_fitnesses = []
 
     def reinitialize_code_generation(self, min_level, max_level, program, evaluation_function, evaluation_samples=3,
                                      pde_parameter_values=None):
@@ -148,9 +180,11 @@ class Optimizer:
     @staticmethod
     def _init_creator():
         creator.create("MultiObjectiveFitness", deap.base.Fitness, weights=(-1.0, -1.0))
-        creator.create("MultiObjectiveIndividual", gp.PrimitiveTree, fitness=creator.MultiObjectiveFitness)
+        creator.create("MultiObjectiveIndividual", gp.PrimitiveTree,
+                       fitness=creator.MultiObjectiveFitness)
         creator.create("SingleObjectiveFitness", deap.base.Fitness, weights=(-1.0,))
-        creator.create("SingleObjectiveIndividual", gp.PrimitiveTree, fitness=creator.SingleObjectiveFitness)
+        creator.create("SingleObjectiveIndividual", gp.PrimitiveTree,
+                       fitness=creator.SingleObjectiveFitness)
 
     def _init_toolbox(self, pset, node_replacement_probability=1.0/3.0):
         self._toolbox = deap.base.Toolbox()
@@ -189,8 +223,9 @@ class Optimizer:
         self.individual_cache.clear()
 
     def add_individual_to_cache(self, individual, values):
-        if len(self.individual_cache) < self._individual_cache_size:
-            self.individual_cache[str(individual)] = values
+        for i, ind in enumerate(individual):
+            if len(self.individual_cache) < self._individual_cache_size:
+                self.individual_cache[str(ind)] = values[i]
 
     def individual_in_cache(self, individual):
         tmp = str(individual) in self.individual_cache
@@ -305,6 +340,13 @@ class Optimizer:
             from mpi4py import MPI
             return self.mpi_comm.allreduce(variable, op=MPI.SUM)
 
+    def bcast(self, variable):
+        if self.mpi_comm is None:
+            return variable
+        else:
+            from mpi4py import MPI
+            return self.mpi_comm.bcast(variable, root=0)
+
     def barrier(self):
         if self.mpi_comm is not None:
             self.mpi_comm.barrier()
@@ -418,38 +460,75 @@ class Optimizer:
 
     def evaluate_multiple_objectives(self, individual, pset, storages, min_level, max_level, solver_program,
                                      evaluation_samples=3, pde_parameter_values=None):
+        def is_list_of_lists(obj):
+            if not isinstance(obj, list):
+                return False
+            for item in obj:
+                if not isinstance(item, list):
+                    return False
+            return True
+        # check if an individual should/can be compiled to a gp expression.
+        def get_fitness(individual):
+            if len(individual) > 150:
+                return self.infinity, self.infinity
+            if self.individual_in_cache(individual):
+                return self.get_cached_fitness(individual)
+            return None
+
+        # check if there are a list of individuals
+        if not is_list_of_lists(individual):
+            individual = [individual]
+
+        # define a expression and fitness list for input individual list
+        fitness = [None] * len(individual)
+        expression = [None] * len(individual)
+
+        # assign fitness if already cached or for very large individuals.
+        for i, ind in enumerate(individual):
+            out = get_fitness(ind)
+            if out is not None:
+                fitness[i] = out
+
         if pde_parameter_values is None:
             pde_parameter_values = {}
-        if len(individual) > 150:
-            return self.infinity, self.infinity
-        if self.individual_in_cache(individual):
-            return self.get_cached_fitness(individual)
-        with suppress_output():
-        # with do_nothing():
+        for i, ind in enumerate(individual):
+            if fitness[i] is not None:
+                continue
             try:
-                expression1, expression2 = self.compile_individual(individual, pset)
+                expression1, expression2 = self.compile_individual(ind, pset)
             except MemoryError:
                 self._failed_evaluations += 1
-                fitness = self.infinity, self.infinity
-                self.add_individual_to_cache(individual, fitness)
+                fitness[i] = self.infinity, self.infinity
+                continue
+            expression[i] = expression1
+
+        non_none_indices = [i for i, value in enumerate(expression) if value is not None]
+        if len(non_none_indices) == 0:
+            if len(fitness) == 1:
+                return fitness[0]
+            else:
                 return fitness
-            expression = expression1
-            start = time.time()
-            average_time_to_convergence, average_convergence_factor, average_number_of_iterations = \
-                self._program_generator.generate_and_evaluate(expression, storages, min_level, max_level,
-                                                              solver_program,
-                                                              infinity=self.infinity,
-                                                              evaluation_samples=evaluation_samples,
-                                                              global_variable_values=pde_parameter_values)
-            end = time.time()
-            self._total_number_of_evaluations += 1
-            self._total_evaluation_time += end - start
-            # Use number of iteration
-            # fitness = average_number_of_iterations, average_time_to_convergence / average_number_of_iterations
-            fitness = average_convergence_factor, average_time_to_convergence / average_number_of_iterations
-            if average_number_of_iterations >= self.infinity:
-                fitness = average_convergence_factor, self.infinity
-            self.add_individual_to_cache(individual, fitness)
+        start = time.time()
+        average_time_to_convergence, average_convergence_factor, average_number_of_iterations = \
+            self._program_generator.generate_and_evaluate([e for e in expression if e is not None], storages, min_level, max_level,
+                                                          solver_program,
+                                                          infinity=self.infinity,
+                                                          evaluation_samples=evaluation_samples,
+                                                          global_variable_values=pde_parameter_values)
+        end = time.time()
+        self._total_number_of_evaluations += len(individual)
+        self._total_evaluation_time += end - start
+        fitness_calc = list(average_convergence_factor), list(
+            average_time_to_convergence / average_number_of_iterations)
+        fitness_calc = list(zip(*fitness_calc))
+        for i, fit in zip(non_none_indices, fitness_calc):
+            if fit[0] >= 1:
+                fit = fit[0], self.infinity
+            fitness[i] = fit
+        self.add_individual_to_cache(individual, fitness)
+        if len(fitness) == 1:
+            return fitness[0]
+        else:
             return fitness
 
     def ea_mu_plus_lambda(self, initial_population_size, generations, generalization_interval, mu_, lambda_,
@@ -575,8 +654,12 @@ class Optimizer:
             # Evaluate the individuals with an invalid fitness
             invalid_ind = [ind for ind in offspring if not ind.fitness.valid]
             fitnesses = self.toolbox.map(self.toolbox.evaluate, invalid_ind)
+            #print(list(fitnesses))
+            #self.all_fitnesses.append(list(fitnesses))
             for ind, fit in zip(invalid_ind, fitnesses):
                 ind.fitness.values = fit
+            #print([ind.fitness.values for ind in offspring])
+            self.all_fitnesses.append([ind.fitness.values for ind in offspring])
             self._total_evaluation_time = self.allreduce(self.total_evaluation_time)
             self._total_number_of_evaluations = self.allreduce(self._total_number_of_evaluations)
             offspring = self.allgather(offspring)
@@ -585,7 +668,7 @@ class Optimizer:
             if self.mpi_comm is not None and self.number_of_mpi_processes > 1:
                 for ind in offspring:
                     if not self.individual_in_cache(ind):
-                        self.add_individual_to_cache(ind, ind.fitness.values)
+                        self.add_individual_to_cache([ind], [ind.fitness.values])
 
             if gen % checkpoint_frequency == 0:
                 if solver is not None:
@@ -594,7 +677,10 @@ class Optimizer:
                 checkpoint = CheckPoint(min_level, max_level, gen, program, solver, population, logbooks)
                 try:
                     if not os.path.exists(self._checkpoint_directory_path):
-                        os.makedirs(self._checkpoint_directory_path)
+                        try:
+                            os.makedirs(self._checkpoint_directory_path)
+                        except FileExistsError:
+                            pass
                     checkpoint.dump_to_file(f'{self._checkpoint_directory_path}/checkpoint.p')
                 except (pickle.PickleError, TypeError, FileNotFoundError) as e:
                     print(e, flush=True)
@@ -622,7 +708,9 @@ class Optimizer:
         if self.is_root():
             print("Optimization finished", flush=True)
 
-        return population, logbook, hof, evaluation_min_level, evaluation_max_level
+        # return population, logbook, hof, evaluation_min_level, evaluation_max_level
+
+        return population, logbook, hof, evaluation_min_level, evaluation_max_level, self.all_fitnesses
 
     def SOGP(self, pset, initial_population_size, generations, generalization_interval, mu_, lambda_,
              crossover_probability, mutation_probability, min_level, max_level,
@@ -669,7 +757,7 @@ class Optimizer:
     def NSGAII(self, pset, initial_population_size, generations, generalization_interval, mu_, lambda_,
                crossover_probability, mutation_probability, min_level, max_level,
                program, storages, solver, evaluation_samples, logbooks, use_random_search=False,
-               model_based_estimation=False, pde_parameter_values=None, checkpoint_frequency=2, checkpoint=None):
+               model_based_estimation=False, pde_parameter_values=None, checkpoint_frequency=1, checkpoint=None):
 
         if pde_parameter_values is None:
             pde_parameter_values = {}
@@ -708,7 +796,8 @@ class Optimizer:
         stats_fit1 = tools.Statistics(lambda ind: ind.fitness.values[0])
         stats_fit2 = tools.Statistics(lambda ind: ind.fitness.values[1])
         stats_size = tools.Statistics(len)
-        mstats = tools.MultiStatistics(convergence_factor=stats_fit1, execution_time=stats_fit2, size=stats_size)
+        mstats = tools.MultiStatistics(convergence_factor=stats_fit1,
+                                       execution_time=stats_fit2, size=stats_size)
 
         hof = tools.ParetoFront(similar=lambda a, b: str(a) == str(b))
 
@@ -720,7 +809,7 @@ class Optimizer:
     def NSGAIII(self, pset, initial_population_size, generations, generalization_interval, mu_, lambda_,
                 crossover_probability, mutation_probability, min_level, max_level,
                 program, storages, solver, evaluation_samples, logbooks, use_random_search=False,
-                model_based_estimation=False, pde_parameter_values=None, checkpoint_frequency=2, checkpoint=None):
+                model_based_estimation=False, pde_parameter_values=None, checkpoint_frequency=1, checkpoint=None):
         if pde_parameter_values is None:
             pde_parameter_values = {}
         elif model_based_estimation and self.is_root():
@@ -758,7 +847,8 @@ class Optimizer:
         stats_fit1 = tools.Statistics(lambda ind: ind.fitness.values[0])
         stats_fit2 = tools.Statistics(lambda ind: ind.fitness.values[1])
         stats_size = tools.Statistics(len)
-        mstats = tools.MultiStatistics(convergence_factor=stats_fit1, execution_time=stats_fit2, size=stats_size)
+        mstats = tools.MultiStatistics(convergence_factor=stats_fit1,
+                                       execution_time=stats_fit2, size=stats_size)
 
         hof = tools.ParetoFront(similar=lambda a, b: str(a) == str(b))
 
@@ -784,8 +874,10 @@ class Optimizer:
         approximations = [self.approximation]
         right_hand_sides = [self.rhs]
         for i in range(1, levels + 1):
-            approximations.append(system.get_coarse_approximation(approximations[-1], self.coarsening_factors))
-            right_hand_sides.append(system.get_coarse_rhs(right_hand_sides[-1], self.coarsening_factors))
+            approximations.append(system.get_coarse_approximation(
+                approximations[-1], self.coarsening_factors))
+            right_hand_sides.append(system.get_coarse_rhs(
+                right_hand_sides[-1], self.coarsening_factors))
         best_expression = None
         best_individual = None
         checkpoint = None
@@ -802,7 +894,9 @@ class Optimizer:
         pops = []
         logbooks = []
         hofs = []
-        storages = self._program_generator.generate_storage(self.min_level, self.max_level, self.finest_grid)
+        fitnesses = []
+        storages = self._program_generator.generate_storage(
+            self.min_level, self.max_level, self.finest_grid)
         self._storages = storages
         FAS = False
         if self._program_generator.uses_FAS:
@@ -826,17 +920,15 @@ class Optimizer:
                 self.performance_evaluator.set_runtime_of_coarse_grid_solver(0.0)
 
             rhs = right_hand_sides[i]
-            enable_partitioning = True
             if model_based_estimation:
                 if verbose:
                     print("Warning: Smoother partitioning not supported with model-based estimation")
                 enable_partitioning = False
-            self._enable_partitioning = enable_partitioning
             pset, terminal_list = \
                 multigrid_initialization.generate_primitive_set(approximation, rhs, self.dimension,
                                                                 self.coarsening_factors, max_level, self.equations,
                                                                 self.operators, self.fields,
-                                                                enable_partitioning=enable_partitioning,
+                                                                enable_partitioning=self._enable_partitioning,
                                                                 maximum_local_system_size=maximum_local_system_size,
                                                                 depth=levels_per_run,
                                                                 FAS=FAS)
@@ -860,15 +952,17 @@ class Optimizer:
                     return math.log(self.epsilon) / math.log(convergence_factor) * execution_time
                 else:
                     return convergence_factor * math.sqrt(self.infinity) * execution_time
-            pop, log, hof, evaluation_min_level, evaluation_max_level = \
+            pop, log, hof, evaluation_min_level, evaluation_max_level, fitnesses = \
                 optimization_method(pset, initial_population_size, generations, generalization_interval, mu_, lambda_,
                                     crossover_probability, mutation_probability,
                                     min_level, max_level, solver_program, storages, best_expression, evaluation_samples, logbooks,
                                     model_based_estimation=model_based_estimation, pde_parameter_values=pde_parameter_values,
-                                    checkpoint_frequency=2, checkpoint=tmp, use_random_search=use_random_search)
+                                    checkpoint_frequency=1, checkpoint=tmp, use_random_search=use_random_search)
             if len(pop[0].fitness.values) == 2:
-                pop = sorted(pop, key=lambda ind: estimate_execution_time(ind.fitness.values[0], ind.fitness.values[1]))
-                hof = sorted(hof, key=lambda ind: estimate_execution_time(ind.fitness.values[0], ind.fitness.values[1]))
+                pop = sorted(pop, key=lambda ind: estimate_execution_time(
+                    ind.fitness.values[0], ind.fitness.values[1]))
+                hof = sorted(hof, key=lambda ind: estimate_execution_time(
+                    ind.fitness.values[0], ind.fitness.values[1]))
             else:
                 pop = sorted(pop, key=lambda ind: ind.fitness.values[0])
                 hof = sorted(hof, key=lambda ind: ind.fitness.values[0])
@@ -883,7 +977,8 @@ class Optimizer:
                               # f'Number of iterations: {individual.fitness.values[0]}', flush=True)
                               f'Convergence Factor: {individual.fitness.values[0]}', flush=True)
                     else:
-                        print(f'\nExecution time until convergence: {individual.fitness.values[0]}', flush=True)
+                        print(
+                            f'\nExecution time until convergence: {individual.fitness.values[0]}', flush=True)
                     print('Tree representation:', flush=True)
                     print(str(individual), flush=True)
 
@@ -892,21 +987,23 @@ class Optimizer:
                                                                             max(self.max_level, evaluation_max_level))
             if self.is_root():
                 average_runtime, average_convergence_factor, average_number_of_iterations = \
-                    self.program_generator.generate_and_evaluate(expression, self._storages, evaluation_min_level, evaluation_max_level, solver_program)
-                print(f'\nMeasurements for best individual - solving time: {average_runtime}, convergence factor: {average_convergence_factor}, '
+                    self.program_generator.generate_and_evaluate(
+                        expression, self._storages, evaluation_min_level, evaluation_max_level, solver_program)
+                print(f'\nMeasurements for best individual - solving time: {average_runtime} (ms), convergence factor: {average_convergence_factor}, '
                       f'number of iterations: {average_number_of_iterations}')
-            solver_program += cycle_function
+            solver_program += ','.join(cycle_function)
             self.barrier()
 
         self.barrier()
-        return str(best_individual), solver_program, pops, logbooks, hofs
+        return str(best_individual), solver_program, pops, logbooks, hofs, fitnesses
 
     def generate_and_evaluate_program_from_grammar_representation(self, grammar_string: str, maximum_block_size):
         solver_program = ''
 
         approximation = self.approximation
         rhs = self.rhs
-        storages = self._program_generator.generate_storage(self.min_level, self.max_level, self.finest_grid)
+        storages = self._program_generator.generate_storage(
+            self.min_level, self.max_level, self.finest_grid)
         levels = self.max_level - self.min_level
         pset, terminal_list = \
             multigrid_initialization.generate_primitive_set(approximation, rhs, self.dimension,
@@ -914,11 +1011,8 @@ class Optimizer:
                                                             self.operators, self.fields,
                                                             maximum_local_system_size=maximum_block_size,
                                                             depth=levels)
-        self.program_generator.initialize_code_generation(self.min_level, self.max_level) #, iteration_limit=10000)
-        # pset.context['__builtins__'] = 'None'
-        del pset.context['__builtins__']
-        pset.context.pop(next(reversed(pset.context.keys())), 'default value') 
-        # print((pset.context))
+        self.program_generator.initialize_code_generation(
+            self.min_level, self.max_level, iteration_limit=10000)
         expression, _ = eval(grammar_string, pset.context, {})
         # initial_weights = [1 for _ in relaxation_factor_optimization.obtain_relaxation_factors(expression)]
         # relaxation_factor_optimization.set_relaxation_factors(expression, initial_weights)
@@ -930,6 +1024,7 @@ class Optimizer:
         # print(f'Time: {time_to_solution}, '
         #       f'Convergence factor: {convergence_factor}, '
         #       f'Number of Iterations: {number_of_iterations}', flush=True)
+
         return time_to_solution, convergence_factor, number_of_iterations
 
     @staticmethod

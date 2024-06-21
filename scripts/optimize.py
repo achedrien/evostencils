@@ -63,10 +63,10 @@ def main():
     optimization_method = optimizer.NSGAII
 
 
-    mu_ = 24 # Population size
-    lambda_ = 12 # Number of offspring
-    generations = 25 # 250 # 0 # Number of generations
-    population_initialization_factor = 8  # Multiplicator of the initial population size
+    mu_ = 250 # Population size
+    lambda_ = 248 # Number of offspring
+    generations = 250 # 250 # 0 # Number of generations
+    population_initialization_factor = 2  # Multiplicator of the initial population size
     generalization_interval = 1e100
     crossover_probability = 2/3
     mutation_probability = 1.0 - crossover_probability

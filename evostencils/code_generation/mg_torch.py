@@ -291,6 +291,8 @@ class ProgramGenerator:
         # timeout=30) # capture_output=True, text=True, cwd=self.build_path, timeout=30)
         model = FlexibleMGTorch(intergrid_operators, smoother, weight) # FlexibleMGTorch(self, cmd_args)
         run_time, convergence_factor, n_iterations = model.run_time, model.convergence_factor, model.n_iterations
+        if n_iterations == 100 or convergence_factor>1:
+            run_time, convergence_factor, n_iterations = 1e100, 1e100, 1e100
         # print(run_time, convergence_factor, n_iterations)
         return run_time, convergence_factor, n_iterations
 
