@@ -63,9 +63,9 @@ def main():
     optimization_method = optimizer.NSGAII
 
 
-    mu_ = 250 # Population size
-    lambda_ = 248 # Number of offspring
-    generations = 250 # 250 # 0 # Number of generations
+    mu_ = 25 # Population size
+    lambda_ = 24 # Number of offspring
+    generations = 2 #50 # 250 # 0 # Number of generations
     population_initialization_factor = 2  # Multiplicator of the initial population size
     generalization_interval = 1e100
     crossover_probability = 2/3
@@ -73,7 +73,7 @@ def main():
     node_replacement_probability = 0.2  # Probability to perform mutation
     evaluation_samples = 1 # 32  # Number of evaluation samples
     maximum_local_system_size = 8  # Maximum size of the local system solved
-    continue_from_checkpoint = False
+    continue_from_checkpoint = True
     lambda_prime = int(lambda_ / nprocs)
 
     program, dsl_code, pops, stats, hofs, fitnesses = \

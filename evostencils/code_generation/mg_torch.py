@@ -2,7 +2,7 @@
 """
 This module contains the necessary tools to interract with hyteg
 """
-
+import torch
 import subprocess
 import re
 import os
@@ -10,7 +10,7 @@ import shutil
 from enum import Enum
 import numpy as np
 import evostencils
-from evostencils.code_generation.flexible_mg_torch import FlexibleMGTorch
+from evostencils.code_generation.flexible_mg_torch import Solver
 
 class InterGridOperations(Enum):
     """
@@ -289,11 +289,24 @@ class ProgramGenerator:
         # output = subprocess.run(["mpiexec", "--map-by", "ppr:1:core", "--bind-to",
         # "core", self.problem] + cmd_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
         # timeout=30) # capture_output=True, text=True, cwd=self.build_path, timeout=30)
-        model = FlexibleMGTorch(intergrid_operators, smoother, weight) # FlexibleMGTorch(self, cmd_args)
+        N = 2**6
+        x, y = np.linspace(0, 1, N), np.linspace(0, 1, N)
+        X, Y = np.meshgrid(x, y)
+        def g(a, x):
+            return (x**a) * (1 - x) ** a
+
+
+        def h(a, x):
+            return a * (a - 1) * (1 - 2 * x) ** 2 - 2 * a * x * (1 - x)
+        a=10 #randint(1, 20)
+        physical_rhs = (2 ** (4 * a)) * g(a, Y) * g(a - 2, X) * h(a, X)
+        physical_rhs = torch.from_numpy(physical_rhs[np.newaxis, np.newaxis, :, :].astype(np.float64))
+        model = Solver(physical_rhs, intergrid_operators, smoother, weight) # FlexibleMGTorch(self, cmd_args)
         run_time, convergence_factor, n_iterations = model.run_time, model.convergence_factor, model.n_iterations
         if n_iterations == 100 or convergence_factor>1:
             run_time, convergence_factor, n_iterations = 1e100, 1e100, 1e100
         # print(run_time, convergence_factor, n_iterations)
+        del(model)
         return run_time, convergence_factor, n_iterations
 
     def generate_and_evaluate(self, *args, **kwargs):
