@@ -5,11 +5,11 @@ import numpy as np
 import os
 
 
-dataset_root = "/Users/gode/Documents/evostencils_pytorch/evostencils/scripts/data/"
+dataset_root = "/home/hadrien/Applications/mg_pytorch/evostencils/scripts/data/"
 shape = "curve"
 image_size = 128
 start_index = 1
-num_instances = 10
+num_instances = 1000
 
 def __gen_random_curve(c_x: float,
                        c_y: float,

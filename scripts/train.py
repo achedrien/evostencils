@@ -30,16 +30,17 @@ class TrainArg():
         self.lambda_1=1
         self.lambda_2=1
         self.start_epoch=0
-        self.max_epoch=10
-        self.save_every=1
+        self.max_epoch=300
+        self.save_every=10
         self.evaluate_every=1
-        self.dataset_root='/Users/gode/Documents/evostencils_pytorch/evostencils/scripts/data/'
-        self.num_workers=8
-        self.batch_size=1
-        self.checkpoint_root='/Users/gode/Documents/evostencils_pytorch/evostencils/scripts/train/checkpoints'
+        self.dataset_root='/home/hadrien/Applications/mg_pytorch/evostencils/scripts/data/'
+        self.num_workers=24
+        self.batch_size=10
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.checkpoint_root='/home/hadrien/Applications/mg_pytorch/evostencils/scripts/train/checkpoints'
         self.load_experiment="None"
         self.load_epoch="None"
-        self.seed=9590589012167207234
+        self.seed=42 # 9590589012167207234
         self.deterministic=False
         
 # noinspection DuplicatedCode
@@ -100,7 +101,7 @@ def main() -> None:
     physical_rhs = torch.from_numpy(physical_rhs[np.newaxis, np.newaxis, :, :].astype(np.float64))
     solver = Solver.Solver(physical_rhs, [-1,-1,-1,-1,1,1,-1,1,1,0,1,0,-1,0,-1,-1,1,-1,1,1,1,0,0],
                           [0,0,1,0,2,1,1,1,0,1,1,1,1,1,1,0,1,1,1,0,1,1,1,1], 
-                          [0,0,1.9,0,1,1.8,1.7,1.75,0,1.45,1.35,0.7499999999999999,1.35,1.7,1.7,0,1.8,1.7,1.9,0,0.8499999999999999,0.5499999999999999,1.65,0.8999999999999999], device=None)
+                          [0,0,1.9,0,1,1.8,1.7,1.75,0,1.45,1.35,0.7499999999999999,1.35,1.7,1.7,0,1.8,1.7,1.9,0,0.8499999999999999,0.5499999999999999,1.65,0.8999999999999999], device=device)
     trainer = Trainer.Trainer(experiment_name, experiment_checkpoint_path, device,
                             solver, logger,
                             opt.optimizer, opt.scheduler, opt.initial_lr, opt.lambda_1, opt.lambda_2,

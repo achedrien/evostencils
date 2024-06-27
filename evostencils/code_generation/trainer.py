@@ -148,7 +148,7 @@ class Trainer:
             for batch in self.train_loader:
                 f: typing.Optional[torch.Tensor] = None
 
-                tup: typing.Tuple[torch.Tensor, int] = self.model(1e-3)
+                tup: typing.Tuple[torch.Tensor, int] = self.model(batch['bc_value'], 1e-3)
                 y, time, conv_factor, iterations_used = tup
                 residue: torch.Tensor = absolute_residue(y, batch['bc_mask'].to(self.device), f, reduction='none')
 
@@ -230,5 +230,5 @@ class Trainer:
             if (epoch + 1) % self.save_every == 0 or epoch == self.max_epoch - 1:
                 self.logger.info('[Epoch {}/{}] Model saved.\n'.format(epoch, self.max_epoch - 1))
                 self.model.save(self.experienment_checkpoint_path, epoch + 1)
-            else:
-                self.logger.info('')
+            # else:
+            #     self.logger.info('')

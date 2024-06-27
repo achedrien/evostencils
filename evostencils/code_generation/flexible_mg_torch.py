@@ -22,7 +22,7 @@ class Solver(nn.Module):
         self.intergrid_operators = intergrid_operators
         self.smoother = smoother
         self.weight = weight
-        self.f = physical_rhs # torch.from_numpy(physical_rhs[np.newaxis, np.newaxis, :, :].astype(np.float64)).to(self.device)
+        self.f = physical_rhs.to(self.device) # torch.from_numpy(physical_rhs[np.newaxis, np.newaxis, :, :].astype(np.float64)).to(self.device)
         u, self.run_time, self.convergence_factor, self.n_iterations = self.solve_poisson(1e-3)
         torch.autograd.set_detect_anomaly(True)
 
@@ -41,9 +41,9 @@ class Solver(nn.Module):
             tau = 0.01
             u = u + ( 1 - tau ) * omega * (f - u_conv_fixed) / fixed_central_coeff + tau * omega * (f - u_conv_trainable) / trainable_central_coeff
         else:
-            u = u + omega * (f - u_con_fixedv) / fixed_central_coeff
+            u = u + omega * (f - u_conv_fixed) / fixed_central_coeff
             
-        u = u.clone()
+        u = u.clone().to(self.device)
         u[:, :, :, 0] = 0
         u[:, :, :, -1] = 0
         u[:, :, 0, :] = 0
@@ -52,7 +52,7 @@ class Solver(nn.Module):
 
     def restrict(self, u):
         u = F.avg_pool2d(u, 2)
-        u = u.clone()
+        u = u.clone().to(self.device)
         u[:, :, :, 0] = 0
         u[:, :, :, -1] = 0
         u[:, :, 0, :] = 0
@@ -61,7 +61,7 @@ class Solver(nn.Module):
 
     def prolongate(self, u):
         u = F.interpolate(u, scale_factor=2, mode='bilinear', align_corners=True)
-        u = u.clone()
+        u = u.clone().to(self.device)
         u[:, :, :, 0] = 0
         u[:, :, :, -1] = 0
         u[:, :, 0, :] = 0
@@ -69,8 +69,8 @@ class Solver(nn.Module):
         return u
 
     def cgs(self, u, f):
-        u_np = u.detach().numpy()[0, 0, :, :].flatten()
-        f_np = f.detach().numpy()[0, 0, :, :].flatten()
+        u_np = u.cpu().detach().numpy()[0, 0, :, :].flatten()
+        f_np = f.cpu().detach().numpy()[0, 0, :, :].flatten()
         N = int(len(u_np)**0.5)
         A = np.kron(np.diag(np.ones(N - 1), -1) + np.diag(np.ones(N - 1), 1), - np.eye(N))
         D = -1.0 * np.diag(np.ones(N - 1), -1) + -1.0 * np.diag(np.ones(N - 1), 1) + 4 * np.diag(np.ones(N), 0)
@@ -83,8 +83,8 @@ class Solver(nn.Module):
         levels=0
         udictionary = {}
         fdictionary = {}
-        udictionary[levels] = u.clone()
-        fdictionary[levels] = self.f.clone()
+        udictionary[levels] = u.clone().to(self.device)
+        fdictionary[levels] = self.f.clone().to(self.device)
         for i, operator in enumerate(self.intergrid_operators):
             # print(levels)
             if operator == -1:
@@ -117,7 +117,7 @@ class Solver(nn.Module):
 
     def solve_poisson(self, tol):
         start_time = time.time()
-        u = torch.zeros_like(self.f)
+        u = torch.zeros_like(self.f).to(self.device)
         conv_holder = F.conv2d(u, (1 / (1 / np.shape(u)[-1])**2) * self.fixed_stencil, padding=0)
         conv_holder = F.pad(conv_holder, (1, 1, 1, 1), "constant", 0)
         res = torch.sum(torch.abs(self.f - conv_holder))/torch.sum(torch.abs(self.f)) #np.inner((f - conv_holder).detach().cpu().numpy()[0, 0, :, :].flatten(),
@@ -143,7 +143,8 @@ class Solver(nn.Module):
         # torch.cuda.empty_cache()
         return u, end_time - start_time, torch.mean(torch.stack(convfactorlist)).item(), iter
 
-    def forward(self, tol):
+    def forward(self, f, tol):
+        self.f = f.double().to(self.device)
         u = torch.zeros_like(self.f)
         u, time, conv_factor, iter = self.solve_poisson(tol) # self.intergrid_operators, self.smoother, self.weight)
         return u, time, conv_factor, iter
