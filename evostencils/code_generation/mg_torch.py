@@ -384,7 +384,7 @@ class ProgramGenerator:
             time_solution_list.append(run_time)
             convergence_factor_list.append(convergence)
             if type(n_iterations) == torch.Tensor:
-                n_iterations = n_iterations.cpy().detach()
+                n_iterations = n_iterations.cpu().detach()
             n_iterations_list.append(n_iterations)
 
 

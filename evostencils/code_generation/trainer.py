@@ -37,7 +37,6 @@ def absolute_residue(x: torch.Tensor,
 
     if f is not None:
         eps = eps - f
-    print()
     eps = eps * (1 - bc_mask)
     eps = eps.view(eps.size(0), -1)            # of size (batch_size, image_size ** 2)
 
@@ -87,7 +86,7 @@ class Trainer:
         self.experiment_checkpoint_path: str = experiment_checkpoint_path
 
         self.model = model
-        self.logger = logger
+        # self.logger = logger
 
         self.device: torch.device = device
 
@@ -131,7 +130,7 @@ class Trainer:
                                                         pin_memory=True,
                                                         shuffle=True)
 
-        logger.info(f'[Trainer] {len(self.train_dataset)} training data loaded from {train_dataset_path}')
+        # logger.info(f'[Trainer] {len(self.train_dataset)} training data loaded from {train_dataset_path}')
 
         evaluate_dataset_path: str = os.path.join(dataset_root, 'evaluate')
         self.evaluate_dataset = SynDat(evaluate_dataset_path)
@@ -140,7 +139,7 @@ class Trainer:
                                                            batch_size=batch_size,
                                                            pin_memory=True)
 
-        logger.info(f'[Trainer] {len(self.evaluate_dataset)} evaluation data loaded from {evaluate_dataset_path}\n')
+        # logger.info(f'[Trainer] {len(self.evaluate_dataset)} evaluation data loaded from {evaluate_dataset_path}\n')
 
     # noinspection DuplicatedCode
     def train(self):
@@ -233,8 +232,8 @@ class Trainer:
                             self.max_epoch = epoch
                             return time, conv_factor, iterations_used, trainable_stencils, trainable_weight
 
-                    for k, v in evaluate_loss_dict.items():
-                        self.logger.info('[Evaluation] {} = {}'.format(k, torch.mean(torch.tensor(v))))
+                    # for k, v in evaluate_loss_dict.items():
+                    #     self.logger.info('[Evaluation] {} = {}'.format(k, torch.mean(torch.tensor(v))))
 
                     self.model.train()
 
@@ -246,7 +245,7 @@ class Trainer:
 
             # Save checkpoint
             if (epoch + 1) % self.save_every == 0 or epoch == self.max_epoch - 1:
-                self.logger.info('[Epoch {}/{}] Model saved.\n'.format(epoch, self.max_epoch - 1))
+                # self.logger.info('[Epoch {}/{}] Model saved.\n'.format(epoch, self.max_epoch - 1))
                 self.model.save(self.experiment_checkpoint_path, epoch + 1)
             # else:
             #     self.logger.info('')
