@@ -10,7 +10,9 @@ import shutil
 from enum import Enum
 import numpy as np
 import evostencils
-from evostencils.code_generation.flexible_mg_torch import Solver
+import evostencils.code_generation.flexible_mg_torch as Solver
+import evostencils.code_generation.trainer as Trainer
+from loguru import logger
 
 class InterGridOperations(Enum):
     """
@@ -301,12 +303,36 @@ class ProgramGenerator:
         a=10 #randint(1, 20)
         physical_rhs = (2 ** (4 * a)) * g(a, Y) * g(a - 2, X) * h(a, X)
         physical_rhs = torch.from_numpy(physical_rhs[np.newaxis, np.newaxis, :, :].astype(np.float64))
-        model = Solver(physical_rhs, intergrid_operators, smoother, weight) # FlexibleMGTorch(self, cmd_args)
-        run_time, convergence_factor, n_iterations = model.run_time, model.convergence_factor, model.n_iterations
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+        logger.add(os.path.join('/home/hadrien/Applications/mg_pytorch/evostencils/scripts/train/checkpoints', 'train.log'))
+
+        # backend
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        logger.info(f'[Train] Using device {device}')
+
+        torch.backends.cudnn.deterministic = False
+        torch.backends.cudnn.benchmark = True
+        logger.info(f'[Train] Do not enforce deterministic algorithms, cudnn benchmark enabled')
+
+        solver = Solver.Solver(physical_rhs, intergrid_operators, smoother, weight, device = self.device, trainable = True)
+        trainer = Trainer.Trainer("train", '/home/hadrien/Applications/mg_pytorch/evostencils/scripts/train/checkpoints', self.device,
+                                solver, logger,
+                                'adam', ["step", "1", "0.99"] , 0.5, 1, 1,
+                                0, 300, 300, 5, '/home/hadrien/Applications/mg_pytorch/evostencils/scripts/data/',
+                                 10, 50)
+        run_time, convergence_factor, n_iterations, trainable_stencils, trainable_weight = trainer.train()
+
+
+
+        # model = Solver(physical_rhs, intergrid_operators, smoother, weight, trainable = True, trainable_stencils=trainable_stencils, trainable_weight=trainable_weight) # FlexibleMGTorch(self, cmd_args)
+
+        # run_time, convergence_factor, n_iterations = model.run_time, model.convergence_factor, model.n_iterations
         if n_iterations == 100 or convergence_factor>1:
             run_time, convergence_factor, n_iterations = 1e100, 1e100, 1e100
-        # print(run_time, convergence_factor, n_iterations)
-        del(model)
+        print(type(run_time), type(convergence_factor), type(n_iterations))
+        # del(model)
+
         return run_time, convergence_factor, n_iterations
 
     def generate_and_evaluate(self, *args, **kwargs):
@@ -357,7 +383,10 @@ class ProgramGenerator:
                                                                     [float(x) for x in cmdline_args[5].split(',')])
             time_solution_list.append(run_time)
             convergence_factor_list.append(convergence)
+            if type(n_iterations) == torch.Tensor:
+                n_iterations = n_iterations.cpy().detach()
             n_iterations_list.append(n_iterations)
+
 
         array_mean_time = np.atleast_1d(np.mean(time_solution_list,axis=0))
         array_mean_convergence = np.atleast_1d(np.mean(convergence_factor_list,axis=0))

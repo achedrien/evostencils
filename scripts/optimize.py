@@ -4,7 +4,7 @@ Script for Hyteg optimization.
 
 import os
 import datetime
-from mpi4py import MPI
+# from mpi4py import MPI
 from evostencils.optimization.program import Optimizer
 from evostencils.code_generation.mg_torch import ProgramGenerator
 
@@ -23,9 +23,9 @@ def main():
     eval_software = "hyteg"
 
     # Set up MPI
-    comm = MPI.COMM_WORLD
-    nprocs = comm.Get_size()
-    mpi_rank = comm.Get_rank()
+    comm = None # MPI.COMM_WORLD
+    nprocs = 1 # comm.Get_size()
+    mpi_rank = 0 # comm.Get_rank()
     if nprocs > 1:
         tmp = "processes"
         use_mpi = True
