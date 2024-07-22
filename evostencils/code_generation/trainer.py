@@ -201,13 +201,13 @@ class Trainer:
                 # self.optimizer.zero_grad()
                 # with torch.autograd.set_detect_anomaly(True):
                 #     loss.backward()
-                if self.optimizer == 'LBFGS':
-                    self.optimizer.step(closure=temp)
-                else:
-                    self.optimizer.zero_grad()
-                    with torch.autograd.set_detect_anomaly(True):
-                        loss.backward()
-                    self.optimizer.step()
+                # if optimizer == 'LBFGS':
+                self.optimizer.step(closure=temp)
+                # else:
+                #     self.optimizer.zero_grad()
+                #     with torch.autograd.set_detect_anomaly(True):
+                #         loss.backward()
+                #     self.optimizer.step()
 
             # for k, v in train_loss_dict.items():
             #     self.logger.info('[Epoch {}/{}] {} = {}'.format(epoch, self.max_epoch - 1,
