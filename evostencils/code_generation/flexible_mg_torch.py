@@ -45,12 +45,7 @@ class Solver(nn.Module):
             trainable_central_coeff = trainable_stencil[0, 0, 1, 1]
             u_conv_trainable = F.conv2d(u, trainable_stencil, padding=0)
             u_conv_trainable = F.pad(u_conv_trainable, (1, 1, 1, 1), "constant", 0)
-<<<<<<< HEAD
-            tau = self.trainable_weight
-            u = u + ( 1 - tau ) * omega * (f - u_conv_fixed) / fixed_central_coeff + tau * omega * (f - u_conv_trainable) / trainable_central_coeff
-=======
             u = u + ( 1 - self.trainable_weight) * omega * (f - u_conv_fixed) / fixed_central_coeff + self.trainable_weight * omega * (f - u_conv_trainable) / trainable_central_coeff
->>>>>>> 1916c54cb27dc7b3a2e19135ebf80003229defed
         else:
             u = u + omega * (f - u_conv_fixed) / fixed_central_coeff
         # print(u[:, :, :, 0], u[:, :, :, -1], u[:, :, 0, :], u[:, :, -1, :])
