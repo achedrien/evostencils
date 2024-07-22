@@ -15,10 +15,12 @@ class Solver(nn.Module):
                                            [0.0, 1.0, 0.0]], dtype=torch.float64).to(self.device).unsqueeze(0).unsqueeze(0)
         self.trainable = True
         if self.trainable:
-            self.trainable_stencil = nn.Parameter(torch.tensor([[0.0, 1.0, 0.0],
-                                                                [1.0, -4.0, 1.0],
-                                                                [0.0, 1.0, 0.0]], dtype=torch.float64).to(self.device).unsqueeze(0).unsqueeze(0))
-        
+            # self.trainable_stencil = nn.Parameter(torch.tensor([[0.0, 1.0, 0.0],
+            #                                                     [1.0, -4.0, 1.0],
+            #                                                     [0.0, 1.0, 0.0]], dtype=torch.float64).to(self.device).unsqueeze(0).unsqueeze(0))
+            self.trainable_stencil = nn.Parameter(4*torch.rand(3, 3, dtype=torch.float64).to(self.device).unsqueeze(0).unsqueeze(0))
+            self.trainable_weight = nn.Parameter(torch.rand(1, 1, dtype=torch.float64).to(self.device))
+
         self.intergrid_operators = intergrid_operators
         self.smoother = smoother
         self.weight = weight
@@ -38,7 +40,7 @@ class Solver(nn.Module):
             trainable_central_coeff = trainable_stencil[0, 0, 1, 1]
             u_conv_trainable = F.conv2d(u, trainable_stencil, padding=0)
             u_conv_trainable = F.pad(u_conv_trainable, (1, 1, 1, 1), "constant", 0)
-            tau = 0.01
+            tau = self.trainable_weight
             u = u + ( 1 - tau ) * omega * (f - u_conv_fixed) / fixed_central_coeff + tau * omega * (f - u_conv_trainable) / trainable_central_coeff
         else:
             u = u + omega * (f - u_conv_fixed) / fixed_central_coeff
@@ -154,6 +156,7 @@ class Solver(nn.Module):
         os.makedirs(save_dir, exist_ok=True)
         save_path: str = os.path.join(save_dir, f'epoch_{epoch}.pth')
         print(self.trainable_stencil)
+        print(self.trainable_weight)
         torch.save(self.trainable_stencil, save_path)
 # 3rd try with more rigorous optimization
 # intergrid_operators = [-1,-1,0,-1,-1,1,1,-1,1,1,1,0,0]  # Example operators

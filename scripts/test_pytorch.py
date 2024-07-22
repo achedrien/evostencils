@@ -1,5 +1,5 @@
 from evostencils.optimization.program import Optimizer
-from evostencils.code_generation.exastencils import ProgramGenerator
+from evostencils.code_generation.mg_torch import ProgramGenerator
 import os
 import sys
 from mpi4py import MPI
@@ -9,24 +9,26 @@ import numpy as np
 stencils = np.array([[0.0, 1.0, 0.0],
                      [1.0, -4.0, 1.0],
                      [0.0, 1.0, 0.0]])
-program_generator = ProgramGenerator(0, 4, stencils, mpi_rank=0, cgs_level=0, use_mpi=False)
-
-dimension = program_generator.dimension  # Dimensionality of the problem
-finest_grid = program_generator.finest_grid  # Representation of the finest grid
-coarsening_factors = program_generator.coarsening_factor
+program_generator = ProgramGenerator(0, 4, stencils) #, mpi_rank=0, cgs_level=0, use_mpi=False)
+cwd = f'{os.getcwd()}'
+dimension = 2# program_generator.dimension  # Dimensionality of the problem
+finest_grid = 0# program_generator.finest_grid  # Representation of the finest grid
+coarsening_factors = 0 #program_generator.coarsening_factor
 min_level = program_generator.min_level  # Minimum discretization level
 max_level = program_generator.max_level  # Maximum discretization level
-equations = # program_generator.equations  # System of PDEs in SymPy
-operators = # program_generator.operators  # Discretized differential operators
-fields = # program_generator.fields  # Variables that occur within system of PDEs
-problem_name = program_generator.problem_name
+# equations = # program_generator.equations  # System of PDEs in SymPy
+# operators = # program_generator.operators  # Discretized differential operators
+# fields = # program_generator.fields  # Variables that occur within system of PDEs
+problem_name = "2dpoisson" #program_generator.problem_name
 convergence_evaluator = None
 performance_evaluator = None
 
-
-checkpoint_directory_path = f'{cwd}/{problem_name}/checkpoints_{mpi_rank}'
+comm = None
+nprocs = 1 #comm.Get_size()
+mpi_rank = 0# comm.Get_rank()
+checkpoint_directory_path = f'{cwd}/{problem_name}/checkpoints'
 # Create optimizer object
-optimizer = Optimizer(dimension, finest_grid, coarsening_factors, min_level, max_level, equations, operators, fields,
+optimizer = Optimizer(dimension, finest_grid, coarsening_factors, min_level, max_level,
                         mpi_comm=comm, mpi_rank=mpi_rank, number_of_mpi_processes=nprocs,
                         program_generator=program_generator,
                         convergence_evaluator=convergence_evaluator,
