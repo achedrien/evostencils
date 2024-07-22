@@ -21,7 +21,7 @@ class Solver(nn.Module):
         if self.trainable:
             self.trainable_stencil = nn.Parameter(trainable_stencil.to(self.device))
             # self.trainable_stencil = nn.Parameter(4*torch.rand_like(self.fixed_stencil, dtype=torch.double, requires_grad=True)).to(self.device)
-            self.trainable_weight = nn.Parameter(trainable_weight.to(self.device))
+            self.trainable_weight = 1 # nn.Parameter(trainable_weight.to(self.device))
         else:
             self.trainable_weight = 1
         self.intergrid_operators = intergrid_operators
@@ -30,7 +30,7 @@ class Solver(nn.Module):
         self.max_iter = 100
         self.f = physical_rhs.to(self.device) # torch.from_numpy(physical_rhs[np.newaxis, np.newaxis, :, :].astype(np.float64)).to(self.device)
         # self.bc_value = torch.zeros_like(self.f, dtype=torch.double).to(self.device)
-        u, self.run_time, self.convergence_factor, self.n_iterations = self.solve_poisson(1e-3)
+        u, res, self.run_time, self.convergence_factor, self.n_iterations = self.solve_poisson(1e-3)
         # torch.autograd.set_detect_anomaly(True)
 
     def weighted_jacobi_smoother(self, u, f, omega):
@@ -147,15 +147,15 @@ class Solver(nn.Module):
         # print(f'solve time: {end_time - start_time}, convergence factor: {torch.mean(torch.stack(convfactorlist))}') # np.mean(convfactorlist)}, n iterations:  {iter}')
         # del(conv_holder, f, stencil)
         # torch.cuda.empty_cache()
-        return u, end_time - start_time, torch.mean(torch.stack(convfactorlist)).item(), iter
+        return u, res, end_time - start_time, torch.mean(torch.stack(convfactorlist)).item(), iter
 
     def forward(self, f, tol, optimizer, loss_fn):
         self.f = f.double().to(self.device)
         self.trainable = True
         self.max_iter = 1
         u = torch.zeros_like(self.f)
-        u, time, conv_factor, iter = self.solve_poisson(tol) # self.intergrid_operators, self.smoother, self.weight)
-        return u, time, conv_factor, iter, self.trainable_stencil, self.trainable_weight
+        u, res, time, conv_factor, iter = self.solve_poisson(tol) # self.intergrid_operators, self.smoother, self.weight)
+        return u, res, time, conv_factor, iter, self.trainable_stencil, self.trainable_weight
     
     def save(self, checkpoint_path: str, epoch: int):
         save_dir: str = os.path.join(checkpoint_path, 'pth')

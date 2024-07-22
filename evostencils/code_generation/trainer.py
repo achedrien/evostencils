@@ -113,6 +113,8 @@ class Trainer:
             self.optimizer = torch.optim.RMSprop(self.model.parameters(), lr=self.initial_lr)
         elif optimizer == 'sgd':
             self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.initial_lr)
+        elif optimizer == 'LBFGS':
+            self.optimizer = torch.optim.LBFGS(self.model.parameters(), lr=1, max_iter=50, max_eval=None, tolerance_grad=1e-07, tolerance_change=1e-09, history_size=101, line_search_fn='strong_wolfe')
         else:
             raise NotImplementedError
 
@@ -153,7 +155,7 @@ class Trainer:
                 # print(f"bc_value: {batch['bc_value']}")
                 # print(f"bc_mask: {batch['bc_mask']}")
                 tup: typing.Tuple[torch.Tensor, int] = self.model(batch['bc_value'], 1e-3, self.optimizer, F.mse_loss)
-                y, time, conv_factor, iterations_used, trainable_stencils, trainable_weight = tup
+                y, res, time, conv_factor, iterations_used, trainable_stencils, trainable_weight = tup
                 residue: torch.Tensor = absolute_residue(y, batch['bc_mask'].to(self.device), f, reduction='none')
 
                 # abs_residual_norm, rel_residual_norm = util.relative_residue(y, bc_value, bc_mask, f)
@@ -181,10 +183,25 @@ class Trainer:
                 else:
                     train_loss_dict['loss']: typing.List[torch.Tensor] = [loss]
 
-                self.optimizer.zero_grad()
-                with torch.autograd.set_detect_anomaly(True):
-                    loss.backward()
-                self.optimizer.step()
+                def temp():
+                    tup: typing.Tuple[torch.Tensor, int] = self.model(batch['bc_value'], 1e-3, self.optimizer, F.mse_loss)
+                    y, res, time, conv_factor, iterations_used, trainable_stencils, trainable_weight = tup
+                    residue: torch.Tensor = absolute_residue(y, batch['bc_mask'].to(self.device), f, reduction='none')
+                    loss_x: torch.Tensor =  norm(residue).mean().to(self.device)
+                    # self.optimizer.zero_grad()
+                    with torch.autograd.set_detect_anomaly(True):
+                        loss.backward(retain_graph=True)
+                    return loss_x
+
+                # abs_residual_norm, rel_residual_norm = util.relative_residue(y, bc_value, bc_mask, f)
+                # abs_residual_norm = abs_residual_norm.mean()
+                # rel_residual_norm = rel_residual_norm.mean()
+
+                loss_x: torch.Tensor =  norm(residue).mean().to(self.device) # 
+                # self.optimizer.zero_grad()
+                # with torch.autograd.set_detect_anomaly(True):
+                #     loss.backward()
+                self.optimizer.step(closure=temp)
 
             # for k, v in train_loss_dict.items():
             #     self.logger.info('[Epoch {}/{}] {} = {}'.format(epoch, self.max_epoch - 1,
