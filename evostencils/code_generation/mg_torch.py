@@ -321,16 +321,20 @@ class ProgramGenerator:
                                 'LBFGS', ["step", "1", "0.99"] , 0.5, 1, 1,
                                 0, 1, 1, 5, os.getcwd() + '/data/',
                                  24, 50)
-        run_time, convergence_factor, n_iterations, trainable_stencils, trainable_weight = trainer.train()
-        solver = Solver.Solver(physical_rhs, intergrid_operators, smoother, weight,
-                               device = self.device, trainable = False,
-                               trainable_stencil=trainable_stencils,
-                               trainable_weight=trainable_weight)
-        u, res, run_time, convergence_factor, n_iterations = solver.solve_poisson(1e-3)
+        try:
+            run_time, convergence_factor, n_iterations, trainable_stencils, trainable_weight = trainer.train()
+            solver = Solver.Solver(physical_rhs, intergrid_operators, smoother, weight,
+                                device = self.device, trainable = False,
+                                trainable_stencil=trainable_stencils,
+                                trainable_weight=trainable_weight)
+            u, res, run_time, convergence_factor, n_iterations = solver.solve_poisson(1e-3)
 
-        # model = Solver(physical_rhs, intergrid_operators, smoother, weight, trainable = True, trainable_stencils=trainable_stencils, trainable_weight=trainable_weight) # FlexibleMGTorch(self, cmd_args)
+            # model = Solver(physical_rhs, intergrid_operators, smoother, weight, trainable = True, trainable_stencils=trainable_stencils, trainable_weight=trainable_weight) # FlexibleMGTorch(self, cmd_args)
 
-        # run_time, convergence_factor, n_iterations = model.run_time, model.convergence_factor, model.n_iterations
+            # run_time, convergence_factor, n_iterations = model.run_time, model.convergence_factor, model.n_iterations
+        except Exception as e:
+            print(e)
+            run_time, convergence_factor, n_iterations, trainable_stencils, trainable_weight  = 1e100, 1e100, 1e100, 0, 0
         if n_iterations == 100 or convergence_factor>1:
             run_time, convergence_factor, n_iterations = 1e100, 1e100, 1e100
         # print(run_time, convergence_factor, n_iterations)
