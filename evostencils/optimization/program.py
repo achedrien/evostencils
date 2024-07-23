@@ -445,7 +445,7 @@ class Optimizer:
                 return fitness
             expression = expression1
             start = time.time()
-            average_time_to_convergence, average_convergence_factor, average_number_of_iterations = \
+            average_time_to_convergence, average_convergence_factor, average_number_of_iterations, trainable_stencils, trainable_weight = \
                 self._program_generator.generate_and_evaluate(expression, storages, min_level, max_level, solver_program,
                                                               infinity=self.infinity, evaluation_samples=evaluation_samples,
                                                               global_variable_values=pde_parameter_values)
@@ -509,7 +509,7 @@ class Optimizer:
             else:
                 return fitness
         start = time.time()
-        average_time_to_convergence, average_convergence_factor, average_number_of_iterations = \
+        average_time_to_convergence, average_convergence_factor, average_number_of_iterations, trainable_stencils, trainable_weight = \
             self._program_generator.generate_and_evaluate([e for e in expression if e is not None], storages, min_level, max_level,
                                                           solver_program,
                                                           infinity=self.infinity,
@@ -986,12 +986,12 @@ class Optimizer:
             cycle_function = self.program_generator.generate_cycle_function(expression, self._storages, evaluation_min_level, evaluation_max_level,
                                                                             max(self.max_level, evaluation_max_level))
             if self.is_root():
-                average_runtime, average_convergence_factor, average_number_of_iterations = \
+                average_runtime, average_convergence_factor, average_number_of_iterations, trainable_stencils, trainable_weight = \
                     self.program_generator.generate_and_evaluate(
                         expression, self._storages, evaluation_min_level, evaluation_max_level, solver_program)
                 print(f'\nMeasurements for best individual - solving time: {average_runtime} (ms), convergence factor: {average_convergence_factor}, '
                       f'number of iterations: {average_number_of_iterations}')
-            solver_program += ','.join(cycle_function)
+            solver_program += ','.join(cycle_function) +  ' trainable stencils: ' + str(trainable_stencils) + ' trainable weight: ' + str(trainable_weight) + '\n'
             self.barrier()
 
         self.barrier()
@@ -1016,7 +1016,7 @@ class Optimizer:
         expression, _ = eval(grammar_string, pset.context, {})
         # initial_weights = [1 for _ in relaxation_factor_optimization.obtain_relaxation_factors(expression)]
         # relaxation_factor_optimization.set_relaxation_factors(expression, initial_weights)
-        time_to_solution, convergence_factor, number_of_iterations = \
+        time_to_solution, convergence_factor, number_of_iterations, trainable_stencils, trainable_weight = \
             self._program_generator.generate_and_evaluate(expression, storages, self.min_level, self.max_level,
                                                           solver_program, infinity=self.infinity,
                                                           evaluation_samples=20)
@@ -1025,7 +1025,7 @@ class Optimizer:
         #       f'Convergence factor: {convergence_factor}, '
         #       f'Number of Iterations: {number_of_iterations}', flush=True)
 
-        return time_to_solution, convergence_factor, number_of_iterations
+        return time_to_solution, convergence_factor, number_of_iterations, trainable_stencils, trainable_weight
 
     @staticmethod
     def visualize_tree(individual, filename):

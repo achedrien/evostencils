@@ -32,6 +32,7 @@ class Solver(nn.Module):
         # self.bc_value = torch.zeros_like(self.f, dtype=torch.double).to(self.device)
         u, res, self.run_time, self.convergence_factor, self.n_iterations = self.solve_poisson(1e-3)
         # torch.autograd.set_detect_anomaly(True)
+        # return self.run_time, self.convergence_factor, self.n_iterations
 
     def weighted_jacobi_smoother(self, u, f, omega):
         h = 1 / np.shape(u)[-1]
@@ -161,8 +162,8 @@ class Solver(nn.Module):
         save_dir: str = os.path.join(checkpoint_path, 'pth')
         os.makedirs(save_dir, exist_ok=True)
         save_path: str = os.path.join(save_dir, f'epoch_{epoch}.pth')
-        print(self.trainable_stencil)
-        print(self.trainable_weight)
+        # print(self.trainable_stencil)
+        # print(self.trainable_weight)
         torch.save(self.trainable_stencil, save_path)
 # 3rd try with more rigorous optimization
 # intergrid_operators = [-1,-1,0,-1,-1,1,1,-1,1,1,1,0,0]  # Example operators

@@ -33,11 +33,11 @@ class TrainArg():
         self.max_epoch=1# 300
         self.save_every=1#0
         self.evaluate_every=5
-        self.dataset_root='/Users/gode/Documents/evostencils_pytorch/evostencils/scripts/data/'
-        self.num_workers=12
+        self.dataset_root=os.getcwd() + '/data/'
+        self.num_workers=24
         self.batch_size=50
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.checkpoint_root='/Users/gode/Documents/evostencils_pytorch/evostencils/scripts/train/checkpoints'
+        self.checkpoint_root=os.getcwd() + '/train/checkpoints'
         self.load_experiment="None"
         self.load_epoch="None"
         self.seed=int.from_bytes(os.urandom(4), byteorder="big")

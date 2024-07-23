@@ -305,35 +305,38 @@ class ProgramGenerator:
         physical_rhs = torch.from_numpy(physical_rhs[np.newaxis, np.newaxis, :, :].astype(np.float64))
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-        logger.add(os.path.join('/home/hadrien/Applications/mg_pytorch/evostencils/scripts/train/checkpoints', 'train.log'))
+        # logger.add(os.path.join(os.getcwd() + '/train/checkpoints', 'train.log'))
 
         # backend
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        logger.info(f'[Train] Using device {device}')
+        # logger.info(f'[Train] Using device {device}')
 
         torch.backends.cudnn.deterministic = False
         torch.backends.cudnn.benchmark = True
-        logger.info(f'[Train] Do not enforce deterministic algorithms, cudnn benchmark enabled')
+        # logger.info(f'[Train] Do not enforce deterministic algorithms, cudnn benchmark enabled')
 
         solver = Solver.Solver(physical_rhs, intergrid_operators, smoother, weight, device = self.device, trainable = True)
-        trainer = Trainer.Trainer("train", '/home/hadrien/Applications/mg_pytorch/evostencils/scripts/train/checkpoints', self.device,
+        trainer = Trainer.Trainer("train", os.getcwd() + '/train/checkpoints', self.device,
                                 solver, logger,
-                                'adam', ["step", "1", "0.99"] , 0.5, 1, 1,
-                                0, 300, 300, 5, '/home/hadrien/Applications/mg_pytorch/evostencils/scripts/data/',
-                                 10, 50)
+                                'LBFGS', ["step", "1", "0.99"] , 0.5, 1, 1,
+                                0, 1, 1, 5, os.getcwd() + '/data/',
+                                 24, 50)
         run_time, convergence_factor, n_iterations, trainable_stencils, trainable_weight = trainer.train()
-
-
+        solver = Solver.Solver(physical_rhs, intergrid_operators, smoother, weight,
+                               device = self.device, trainable = False,
+                               trainable_stencil=trainable_stencils,
+                               trainable_weight=trainable_weight)
+        u, res, run_time, convergence_factor, n_iterations = solver.solve_poisson(1e-3)
 
         # model = Solver(physical_rhs, intergrid_operators, smoother, weight, trainable = True, trainable_stencils=trainable_stencils, trainable_weight=trainable_weight) # FlexibleMGTorch(self, cmd_args)
 
         # run_time, convergence_factor, n_iterations = model.run_time, model.convergence_factor, model.n_iterations
         if n_iterations == 100 or convergence_factor>1:
             run_time, convergence_factor, n_iterations = 1e100, 1e100, 1e100
-        print(type(run_time), type(convergence_factor), type(n_iterations))
+        # print(run_time, convergence_factor, n_iterations)
         # del(model)
 
-        return run_time, convergence_factor, n_iterations
+        return run_time, convergence_factor, n_iterations, trainable_stencils, trainable_weight
 
     def generate_and_evaluate(self, *args, **kwargs):
         """
@@ -378,9 +381,9 @@ class ProgramGenerator:
         # run the code and pass the command line arguments from the list
         for _ in range(evaluation_samples):
             # print([float(x) for x in cmdline_args[1].split(',')])
-            run_time, convergence, n_iterations = self.execute_code([float(x) for x in cmdline_args[1].split(',')], 
-                                                                    [float(x) for x in cmdline_args[3].split(',')],
-                                                                    [float(x) for x in cmdline_args[5].split(',')])
+            run_time, convergence, n_iterations, trainable_stencils, trainable_weight = self.execute_code([float(x) for x in cmdline_args[1].split(',')], 
+                                                                                                            [float(x) for x in cmdline_args[3].split(',')],
+                                                                                                            [float(x) for x in cmdline_args[5].split(',')])
             time_solution_list.append(run_time)
             convergence_factor_list.append(convergence)
             if type(n_iterations) == torch.Tensor:
@@ -395,7 +398,7 @@ class ProgramGenerator:
         assert (array_mean_time.shape == array_mean_convergence.shape ==\
                  array_mean_iterations.shape), "The shape of the output arrays \
                     with solver metrics (runtime, convergence, n_iterations) should be the same"
-        return array_mean_time, array_mean_convergence, array_mean_iterations
+        return array_mean_time, array_mean_convergence, array_mean_iterations, trainable_stencils, trainable_weight
 
     def generate_cycle_function(self, *args):
         """

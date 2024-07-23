@@ -20,7 +20,7 @@ banner = """
 
 def main():
     cwd = f'{os.getcwd()}'
-    eval_software = "hyteg"
+    eval_software = "MG-Pytorch"
 
     # Set up MPI
     comm = None # MPI.COMM_WORLD
