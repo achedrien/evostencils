@@ -6,6 +6,7 @@ import numpy as np
 from loguru import logger
 import torch
 import torch.backends.cudnn
+import torch.nn as nn
 import evostencils.code_generation.flexible_mg_torch as Solver
 import evostencils.code_generation.trainer as Trainer
 
@@ -34,7 +35,7 @@ class TrainArg():
         self.save_every=1#0
         self.evaluate_every=5
         self.dataset_root=os.getcwd() + '/data/'
-        self.num_workers=24
+        self.num_workers=os.cpu_count()-2
         self.batch_size=50
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.checkpoint_root=os.getcwd() + '/train/checkpoints'
@@ -99,15 +100,16 @@ def main() -> None:
     a=10 #randint(1, 20)
     physical_rhs = (2 ** (4 * a)) * g(a, Y) * g(a - 2, X) * h(a, X)
     physical_rhs = torch.from_numpy(physical_rhs[np.newaxis, np.newaxis, :, :].astype(np.float64))
-    solver = Solver.Solver(physical_rhs, [-1,-1,-1,-1,1,1,-1,1,1,0,1,0,-1,0,-1,-1,1,-1,1,1,1,0,0],
-                          [0,0,1,0,2,1,1,1,0,1,1,1,1,1,1,0,1,1,1,0,1,1,1,1], 
-                          [0,0,1.9,0,1,1.8,1.7,1.75,0,1.45,1.35,0.7499999999999999,1.35,1.7,1.7,0,1.8,1.7,1.9,0,0.8499999999999999,0.5499999999999999,1.65,0.8999999999999999], trainable = True, device=device)
+    solver = Solver.Solver(physical_rhs, [-1,-1,0,-1,1,1,0,0,1,-1,-1,0,-1,1,1,0,1,-1,-1,-1,-1,1,1,1,1,0,-1,1,0,0],
+                          [0,0,1,1,1,1,1,1,1,0,0,1,1,1,1,1,1,0,0,0,0,2,1,0,0,1,1,1,1,1,1], 
+                          [0,0,0.4,1.15,1.9,1.55,1.8499999999999999,0.8499999999999999,1.3,0,0,0.4,1.15,1.9,1.55,0.8499999999999999,1.3,0,0,0,0,1,1.7,0,0,1.2,0.25,0.4,0.6499999999999999,1.9,1.05], trainable = True, device=device)
     trainer = Trainer.Trainer(experiment_name, experiment_checkpoint_path, device,
                             solver, logger,
                             opt.optimizer, opt.scheduler, opt.initial_lr, opt.lambda_1, opt.lambda_2,
                             opt.start_epoch, opt.max_epoch, opt.save_every, opt.evaluate_every,
-                            opt.dataset_root, opt.num_workers, opt.batch_size)
-    trainer.train()
+                            opt.dataset_root, opt.num_workers, opt.batch_size, verbose=1)
+    for i in range(10):
+        trainer.train()
 
 
 if __name__ == '__main__':

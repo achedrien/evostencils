@@ -320,7 +320,7 @@ class ProgramGenerator:
                                 solver, logger,
                                 'LBFGS', ["step", "1", "0.99"] , 0.5, 1, 1,
                                 0, 1, 1, 5, os.getcwd() + '/data/',
-                                 24, 50)
+                                 os.cpu_count()-2, 50)
         try:
             run_time, convergence_factor, n_iterations, trainable_stencils, trainable_weight = trainer.train()
             solver = Solver.Solver(physical_rhs, intergrid_operators, smoother, weight,

@@ -65,7 +65,7 @@ def main():
 
     mu_ = 25 # Population size
     lambda_ = 24 # Number of offspring
-    generations = 50 # 250 # 0 # Number of generations
+    generations = 5 #50 # 250 # 0 # Number of generations
     population_initialization_factor = 2  # Multiplicator of the initial population size
     generalization_interval = 1e100
     crossover_probability = 2/3
