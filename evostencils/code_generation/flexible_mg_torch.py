@@ -11,7 +11,7 @@ class Solver(nn.Module):
                  trainable_stencil = nn.Parameter(torch.tensor([[0.0, 1.0, 0.0],
                                                                 [1.0, -4.0, 1.0],
                                                                 [0.0, 1.0, 0.0]], dtype=torch.float64).unsqueeze(0).unsqueeze(0)),
-                 trainable_weight = nn.Parameter(1.0*torch.rand(1, generator=torch.Generator(), dtype=torch.double, requires_grad=True).unsqueeze(0).unsqueeze(0).unsqueeze(0))):
+                 trainable_weight = nn.Parameter(0.1*torch.rand(1, generator=torch.Generator(), dtype=torch.double, requires_grad=True).unsqueeze(0).unsqueeze(0).unsqueeze(0))):
         super(Solver, self).__init__()
         self.device = device if device is not None else torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.fixed_stencil = torch.tensor([[0.0, 1.0, 0.0],
@@ -21,7 +21,7 @@ class Solver(nn.Module):
         if self.trainable:
             self.trainable_stencil = nn.Parameter(trainable_stencil.to(self.device))
             # self.trainable_stencil = nn.Parameter(4*torch.rand_like(self.fixed_stencil, dtype=torch.double, requires_grad=True)).to(self.device)
-            self.trainable_weight = 1 # nn.Parameter(trainable_weight.to(self.device))
+            self.trainable_weight = 1 # nn.Parameter(trainable_weight.to(self.device)).clamp(0, 1)
         else:
             self.trainable_weight = 1
         self.intergrid_operators = intergrid_operators
@@ -113,28 +113,26 @@ class Solver(nn.Module):
         while res > tol and iter < self.max_iter:
             u = self.flex_cycle(u)
             conv_holder = F.conv2d(u, (1 / (1 / np.shape(u)[-1])**2) * self.fixed_stencil, padding=0)
-            # conv_holder = F.pad(conv_holder, (1, 1, 1, 1), "constant", 0)
-            # print(self.f.shape, conv_holder.shape)
-            res = torch.sum(torch.abs(self.f[0, 0, 1:-1, 1:-1] - conv_holder))/torch.sum(torch.abs(self.f[0, 0, 1:-1, 1:-1])) 
-            # print(torch.abs(self.f[0, 0, 1:-1, 1:-1] - conv_holder))
+            conv_holder = F.pad(conv_holder, (1, 1, 1, 1), "constant", 0)
+            res = torch.sum(torch.abs(self.f - conv_holder))/torch.sum(torch.abs(self.f)) 
             resratio = res / prevres
             convfactorlist.append(resratio)
             prevres = res
             # print(f'Iteration: {iter}; Residual: {res}; Conv Factor: {resratio}')
             iter += 1
         end_time = time.time()
-        # print(f'solve time: {end_time - start_time}, convergence factor: {torch.mean(torch.stack(convfactorlist))}') # np.mean(convfactorlist)}, n iterations:  {iter}')
+        # print(f'solve time: {end_time - start_time}, convergence factor: {torch.mean(torch.stack(convfactorlist))}') 
         return u, res, end_time - start_time, torch.mean(torch.stack(convfactorlist)).item(), iter
 
     def forward(self, f, tol, optimizer, loss_fn):
-        # self.f = f.double().to(self.device)
-        # conv_holder = F.conv2d(self.f, (1 / (1 / np.shape(self.f)[-1])**2) * self.fixed_stencil, padding=0)
-        # conv_holder = F.pad(conv_holder, (1, 1, 1, 1), "constant", 0)
-        # self.f = conv_holder
+        if f.dim() == 6:
+            self.f = f.double().to(self.device)[0, 0, :, :, :, :]
+        else:
+            self.f = f.double().to(self.device)
         self.trainable = True
-        self.max_iter = 5
+        self.max_iter = 3
         u = torch.zeros_like(self.f)
-        u, res, time, conv_factor, iter = self.solve_poisson(tol) # self.intergrid_operators, self.smoother, self.weight)
+        u, res, time, conv_factor, iter = self.solve_poisson(tol)
         return u, res, time, conv_factor, iter, self.trainable_stencil, self.trainable_weight
     
     def save(self, checkpoint_path: str, epoch: int):

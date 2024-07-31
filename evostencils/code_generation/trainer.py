@@ -6,7 +6,7 @@ import torch.utils.data.dataloader
 import numpy as np
 import torch.nn.functional as F
 import typing
-
+import random
 
 def norm(x: torch.Tensor) -> torch.Tensor:
     """
@@ -73,7 +73,7 @@ class SynDat(Dataset):
                 'bc_mask': bc_mask}
 
     def __len__(self):
-        return len(self.instance_path_lst) // 4
+        return len(self.instance_path_lst) // 100
 
 class Trainer:
     def __init__(self,
@@ -114,7 +114,7 @@ class Trainer:
         elif optimizer == 'sgd':
             self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.initial_lr)
         elif optimizer == 'LBFGS':
-            self.optimizer = torch.optim.LBFGS(self.model.parameters(), lr=1, max_iter=50, max_eval=None, tolerance_grad=1e-07, tolerance_change=1e-09, history_size=101, line_search_fn='strong_wolfe')
+            self.optimizer = torch.optim.LBFGS(self.model.parameters(), lr=1, max_iter=50, max_eval=None, tolerance_grad=1e-15, tolerance_change=1e-15, history_size=101, line_search_fn='strong_wolfe')
         else:
             raise NotImplementedError
 
@@ -145,24 +145,22 @@ class Trainer:
         if verbose > 0:
             logger.info(f'[Trainer] {len(self.evaluate_dataset)} evaluation data loaded from {evaluate_dataset_path}\n')
 
-    # noinspection DuplicatedCode
     def train(self):
         for epoch in range(self.start_epoch, self.max_epoch):
-            # Train
             self.model.train()
             train_loss_dict: typing.Dict[str, typing.List[torch.Tensor]] = {}
 
             for batch in self.train_loader:
-                f: typing.Optional[torch.Tensor] = None
-                # print(f"bc_value: {batch['bc_value']}")
-                # print(f"bc_mask: {batch['bc_mask']}")
-                tup: typing.Tuple[torch.Tensor, int] = self.model(batch['bc_value'], 1e-3, self.optimizer, F.mse_loss)
+                u: typing.Optional[torch.Tensor] = batch['bc_mask'][0, 0, :, :, :, :]
+                f: typing.Optional[torch.Tensor] = batch['bc_value'][0, 0, :, :, :, :]
+                fixed_stencil = torch.tensor([[0.0, 1.0, 0.0],
+                                  [1.0, -4.0, 1.0],
+                                  [0.0, 1.0, 0.0]], dtype=torch.float64).to(self.device).unsqueeze(0).unsqueeze(0)
+                conv_holder = F.conv2d(u.type(torch.float64), (1 / (1 / np.shape(u)[-1])**2) * fixed_stencil, padding=0)
+                f = F.pad(conv_holder, (1, 1, 1, 1), "constant", 0)
+                tup: typing.Tuple[torch.Tensor, int] = self.model(f, 1e-3, self.optimizer, F.mse_loss)
                 y, res, time, conv_factor, iterations_used, trainable_stencils, trainable_weight = tup
-                residue: torch.Tensor = square_residue(y, batch['bc_mask'].to(self.device), f, reduction='none')
-
-                # abs_residual_norm, rel_residual_norm = util.relative_residue(y, bc_value, bc_mask, f)
-                # abs_residual_norm = abs_residual_norm.mean()
-                # rel_residual_norm = rel_residual_norm.mean()
+                residue: torch.Tensor = square_residue(y, f.to(self.device), f.to(self.device), reduction='none')
 
                 loss_x: torch.Tensor =  norm(residue).mean().to(self.device) # torch.tensor(time*conv_factor, requires_grad=True).to(self.device) #    *time*conv_factor*iterations_used
 
@@ -178,7 +176,7 @@ class Trainer:
                 else:
                     train_loss_dict['iterations_used']: typing.List[torch.Tensor] = [iterations_used]
 
-                loss = loss_x # self.lambda_1 * loss_x  + self.lambda_2 * rel_residual_norm
+                loss = loss_x
 
                 if 'loss' in train_loss_dict:
                     train_loss_dict['loss'].append(loss)
@@ -189,34 +187,14 @@ class Trainer:
                     tup: typing.Tuple[torch.Tensor, int] = self.model(batch['bc_value'], 1e-3, self.optimizer, F.mse_loss)
                     y, res, time, conv_factor, iterations_used, trainable_stencils, trainable_weight = tup
                     residue: torch.Tensor = square_residue(y, batch['bc_mask'].to(self.device), f, reduction='none')
-                    # print(norm(residue).mean())
-                    loss_x: torch.Tensor = torch.tensor(conv_factor, requires_grad=True) # norm(residue).mean().to(self.device)
-                    # self.optimizer.zero_grad()
+                    loss_x: torch.Tensor = torch.tensor(conv_factor, requires_grad=True).to(self.device) 
                     with torch.autograd.set_detect_anomaly(True):
                         loss_x.backward(retain_graph=True)
                     return loss_x
 
-                # abs_residual_norm, rel_residual_norm = util.relative_residue(y, bc_value, bc_mask, f)
-                # abs_residual_norm = abs_residual_norm.mean()
-                # rel_residual_norm = rel_residual_norm.mean()
-
-                loss_x: torch.Tensor =  norm(residue).mean().to(self.device) # 
-                # self.optimizer.zero_grad()
-                # with torch.autograd.set_detect_anomaly(True):
-                #     loss.backward()
-                # if optimizer == 'LBFGS':
+                # loss_x: torch.Tensor =  norm(residue).mean().to(self.device) # 
                 self.optimizer.step(closure=temp)
-                # else:
-                #     self.optimizer.zero_grad()
-                #     with torch.autograd.set_detect_anomaly(True):
-                #         loss.backward()
-                #     self.optimizer.step()
 
-            # for k, v in train_loss_dict.items():
-            #     self.logger.info('[Epoch {}/{}] {} = {}'.format(epoch, self.max_epoch - 1,
-            #                                                     k, torch.mean(torch.tensor(v))))
-
-            # Evaluate
             if 0 < self.evaluate_every and (epoch + 1) % self.evaluate_every == 0:
                 with torch.no_grad():
                     self.model.eval()
@@ -230,25 +208,6 @@ class Trainer:
 
                         tup: typing.Tuple[torch.Tensor, int] = self.model(x, bc_value, bc_mask, f)
                         y, iterations_used = tup
-
-                    #     abs_residual_norm, rel_residual_norm = util.relative_residue(y, bc_value, bc_mask, f)
-                    #     abs_residual_norm = abs_residual_norm.mean()
-                    #     rel_residual_norm = rel_residual_norm.mean()
-
-                    #     if 'abs_residual_norm' in evaluate_loss_dict:
-                    #         evaluate_loss_dict['abs_residual_norm'].append(abs_residual_norm)
-                    #     else:
-                    #         evaluate_loss_dict['abs_residual_norm']: typing.List[torch.Tensor] = [abs_residual_norm]
-
-                    #     if 'rel_residual_norm' in evaluate_loss_dict:
-                    #         evaluate_loss_dict['rel_residual_norm'].append(rel_residual_norm)
-                    #     else:
-                    #         evaluate_loss_dict['rel_residual_norm']: typing.List[torch.Tensor] = [rel_residual_norm]
-
-                    # # Calculate mean evaluation loss
-                    # mean_evaluation_loss = torch.mean(torch.tensor(evaluate_loss_dict['abs_residual_norm']))
-
-                    # Check for improvement
                     if loss_x < self.best_loss:
                         self.best_loss = loss_x
                         self.epochs_no_improve = 0
@@ -257,21 +216,10 @@ class Trainer:
                         if self.epochs_no_improve == self.patience:
                             self.max_epoch = epoch
                             return time, conv_factor, iterations_used, trainable_stencils, trainable_weight
-
-                    # for k, v in evaluate_loss_dict.items():
-                    #     self.logger.info('[Evaluation] {} = {}'.format(k, torch.mean(torch.tensor(v))))
-
                     self.model.train()
-
-            # Scheduler step
             if self.verbose > 0:
                 self.logger.info('trainable stencils = {trainable_stencils}, trainable weight = {trainable_weight}, time = {time}, conv_factor = {conv_factor}, iterations_used = {iterations_used}'.format(trainable_stencils=trainable_stencils, trainable_weight=trainable_weight, time=time, conv_factor=conv_factor, iterations_used=iterations_used))
             self.scheduler.step()
-
-            # Save checkpoint
             if (epoch + 1) % self.save_every == 0 or epoch == self.max_epoch - 1:
-                # self.logger.info('[Epoch {}/{}] Model saved.\n'.format(epoch, self.max_epoch - 1))
                 self.model.save(self.experiment_checkpoint_path, epoch + 1)
-            # else:
-            #     self.logger.info('')
         return time, conv_factor, iterations_used, trainable_stencils, trainable_weight
