@@ -25,19 +25,20 @@ Dans le terminal taper la commande `guix pull` pour mettre à jour guix (cela pr
 
 Créer un fichier `CMakeLists.txt` contenant :
 
-`cmake_minimum_required(VERSION 3.12)`
+```
+cmake_minimum_required(VERSION 3.12)
 
-`project(COMPOSYX_EXAMPLE CXX C Fortran)`
+project(COMPOSYX_EXAMPLE CXX C Fortran)
 
-`find_package(maphyspp REQUIRED)`
+find_package(maphyspp REQUIRED)
 
-`set(CMAKE_CXX_STANDARD 20)`
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-`set(CMAKE_CXX_STANDARD_REQUIRED ON)`
+add_executable(exec main.cpp fonction1.cpp fonction2.cpp)
 
-`add_executable(exec main.cpp fonction1.cpp fonction2.cpp)`
-
-`target_link_libraries(exec PRIVATE MAPHYSPP::maphyspp)`
+target_link_libraries(exec PRIVATE MAPHYSPP::maphyspp)
+```
 
 ## Compilation 
 
