@@ -10,10 +10,12 @@ Ouvrir un terminal et taper les commandes suivantes :
 
 Ouvrir le fichier channel configuration (`~/.config/guix/channels.scm`) sinon le créer. Ecrire les commandes suivantes dans le fichier :
 
-```(cons (channel
+```
+(cons (channel
         (name 'guix-hpc-non-free)
         (url "https://gitlab.inria.fr/guix-hpc/guix-hpc-non-free.git"))
-      %default-channels)```
+      %default-channels)
+```
 
 Dans le terminal taper la commande `guix pull` pour mettre à jour guix (cela prend un moment).
 
