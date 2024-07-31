@@ -28,6 +28,7 @@ Créer un fichier `CMakeLists.txt` contenant :
 `find_package(maphyspp REQUIRED)`
 
 `set(CMAKE_CXX_STANDARD 20)`
+
 `set(CMAKE_CXX_STANDARD_REQUIRED ON)`
 
 `add_executable(exec main.cpp fonction1.cpp fonction2.cpp)`
