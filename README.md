@@ -23,29 +23,29 @@ Créer un fichier `CMakeLists.txt` contenant :
 
 `cmake_minimum_required(VERSION 3.12)
 
-project(COMPOSYX_EXAMPLE CXX C Fortran)
+`project(COMPOSYX_EXAMPLE CXX C Fortran)`
 
-find_package(maphyspp REQUIRED)
+`find_package(maphyspp REQUIRED)`
 
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
+`set(CMAKE_CXX_STANDARD 20)`
+`set(CMAKE_CXX_STANDARD_REQUIRED ON)`
 
-add_executable(exec main.cpp fonction1.cpp fonction2.cpp)
+`add_executable(exec main.cpp fonction1.cpp fonction2.cpp)`
 
-target_link_libraries(exec PRIVATE MAPHYSPP::maphyspp)
-`
+`target_link_libraries(exec PRIVATE MAPHYSPP::maphyspp)`
+
 ## Compilation 
 
 Pour ouvrir un terminal un terminal avec composyx installé il faut taper la commande :
 `guix shell --pure maphys++ -D maphys++ coreutils ncurses bash -- bash --norc`
 Se placer à l'endroit où se trouve les fichiers `.cpp` et `CMakeLists.txt`
 Pour compiler :
-`cmake -B build
-cmake --build build --target exec`
+`cmake -B build`
+`cmake --build build --target exec`
 
 ## Execution
 
-build/exec
+`build/exec`
 
 
 
