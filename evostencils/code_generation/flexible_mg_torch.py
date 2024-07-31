@@ -37,7 +37,7 @@ class Solver(nn.Module):
         fixed_central_coeff = fixed_stencil[0, 0, 1, 1]
         u_conv_fixed = F.conv2d(u, fixed_stencil, padding=0)
         u_conv_fixed = F.pad(u_conv_fixed, (1, 1, 1, 1), "constant", 0)
-        omega = 1
+        # omega = 1
         if self.trainable:
             trainable_stencil = (1 / h**2) * self.trainable_stencil
             trainable_central_coeff = trainable_stencil[0, 0, 1, 1]
@@ -46,14 +46,29 @@ class Solver(nn.Module):
             u = u + ( 1 - self.trainable_weight) * omega * (f - u_conv_fixed) / fixed_central_coeff + self.trainable_weight * omega * (f - u_conv_trainable) / trainable_central_coeff
         else:
             u = u + omega * (f - u_conv_fixed) / fixed_central_coeff
+        u = u.clone()
+        u[:, :, :, 0] = 0
+        u[:, :, :, -1] = 0
+        u[:, :, 0, :] = 0
+        u[:, :, -1, :] = 0
         return u
 
     def restrict(self, u):
         u = F.interpolate(u, scale_factor=0.5, mode='bilinear', align_corners=True) # F.avg_pool2d(u, 2)
+        u = u.clone()
+        u[:, :, :, 0] = 0
+        u[:, :, :, -1] = 0
+        u[:, :, 0, :] = 0
+        u[:, :, -1, :] = 0
         return u
 
     def prolongate(self, u):
         u = F.interpolate(u, scale_factor=2, mode='bilinear', align_corners=True)
+        u = u.clone()
+        u[:, :, :, 0] = 0
+        u[:, :, :, -1] = 0
+        u[:, :, 0, :] = 0
+        u[:, :, -1, :] = 0
         return u
 
     def cgs(self, u, f):

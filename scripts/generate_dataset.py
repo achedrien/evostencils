@@ -20,7 +20,6 @@ for i in range(start_index, start_index + num_instances):
                                   [0.0, 1.0, 0.0]], dtype=torch.float64).to(device).unsqueeze(0).unsqueeze(0)
     conv_holder = F.conv2d(x, (1 / (1 / np.shape(x)[-1])**2) * fixed_stencil, padding=0)
     b = F.pad(conv_holder, (1, 1, 1, 1), "constant", 0)
-    print(x.shape)
-    data: np.ndarray = np.stack([x, b])
+    data: np.ndarray = np.stack([x.cpu(), b.cpu()])
     filename = os.path.join(dataset_root, 'data_{:06d}'.format(i))
     np.save(filename, data)

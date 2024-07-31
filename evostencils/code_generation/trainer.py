@@ -151,8 +151,8 @@ class Trainer:
             train_loss_dict: typing.Dict[str, typing.List[torch.Tensor]] = {}
 
             for batch in self.train_loader:
-                u: typing.Optional[torch.Tensor] = batch['bc_mask'][0, 0, :, :, :, :]
-                f: typing.Optional[torch.Tensor] = batch['bc_value'][0, 0, :, :, :, :]
+                u: typing.Optional[torch.Tensor] = batch['bc_mask'][0, 0, :, :, :, :].to(self.device)
+                f: typing.Optional[torch.Tensor] = batch['bc_value'][0, 0, :, :, :, :].to(self.device)
                 fixed_stencil = torch.tensor([[0.0, 1.0, 0.0],
                                   [1.0, -4.0, 1.0],
                                   [0.0, 1.0, 0.0]], dtype=torch.float64).to(self.device).unsqueeze(0).unsqueeze(0)
