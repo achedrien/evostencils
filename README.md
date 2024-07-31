@@ -21,7 +21,7 @@ Dans le terminal taper la commande `guix pull` pour mettre à jour guix (cela pr
 
 Créer un fichier `CMakeLists.txt` contenant :
 
-`cmake_minimum_required(VERSION 3.12)
+`cmake_minimum_required(VERSION 3.12)`
 
 `project(COMPOSYX_EXAMPLE CXX C Fortran)`
 
@@ -41,6 +41,7 @@ Pour ouvrir un terminal un terminal avec composyx installé il faut taper la com
 Se placer à l'endroit où se trouve les fichiers `.cpp` et `CMakeLists.txt`
 Pour compiler :
 `cmake -B build`
+
 `cmake --build build --target exec`
 
 ## Execution
