@@ -190,7 +190,7 @@ class Trainer:
                     y, res, time, conv_factor, iterations_used, trainable_stencils, trainable_weight = tup
                     residue: torch.Tensor = square_residue(y, batch['bc_mask'].to(self.device), f, reduction='none')
                     # print(norm(residue).mean())
-                    loss_x: torch.Tensor = norm(residue).mean().to(self.device)
+                    loss_x: torch.Tensor = torch.tensor(conv_factor, requires_grad=True) # norm(residue).mean().to(self.device)
                     # self.optimizer.zero_grad()
                     with torch.autograd.set_detect_anomaly(True):
                         loss_x.backward(retain_graph=True)

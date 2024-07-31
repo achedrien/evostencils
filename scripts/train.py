@@ -99,10 +99,10 @@ def main() -> None:
         return a * (a - 1) * (1 - 2 * x) ** 2 - 2 * a * x * (1 - x)
     a=10 #randint(1, 20)
     physical_rhs = (2 ** (4 * a)) * g(a, Y) * g(a - 2, X) * h(a, X)
-    physical_rhs = torch.from_numpy(physical_rhs[np.newaxis, np.newaxis, :, :].astype(np.float64))
-    solver = Solver.Solver(physical_rhs, [-1,-1,0,-1,1,1,0,0,1,-1,-1,0,-1,1,1,0,1,-1,-1,-1,-1,1,1,1,1,0,-1,1,0,0],
-                          [0,0,1,1,1,1,1,1,1,0,0,1,1,1,1,1,1,0,0,0,0,2,1,0,0,1,1,1,1,1,1], 
-                          [0,0,0.4,1.15,1.9,1.55,1.8499999999999999,0.8499999999999999,1.3,0,0,0.4,1.15,1.9,1.55,0.8499999999999999,1.3,0,0,0,0,1,1.7,0,0,1.2,0.25,0.4,0.6499999999999999,1.9,1.05], trainable = True, device=device)
+    physical_rhs = torch.from_numpy(physical_rhs[np.newaxis, np.newaxis, :, :].astype(np.float64)).to(device)   
+    solver = Solver.Solver(physical_rhs, [-1,-1,0,-1,0,1,-1,-1,1,1,0,1,1,0],
+                          [0,0,1,1,1,1,0,0,2,0,1,1,0,1,1], 
+                          [0,0,0.2,0.2,0.95,0.4,0,0,1,0,0.6,0.7999999999999999,0,0.8999999999999999,1.45], trainable = True, device=device)
     trainer = Trainer.Trainer(experiment_name, experiment_checkpoint_path, device,
                             solver, logger,
                             opt.optimizer, opt.scheduler, opt.initial_lr, opt.lambda_1, opt.lambda_2,

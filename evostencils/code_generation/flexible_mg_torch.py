@@ -28,11 +28,8 @@ class Solver(nn.Module):
         self.smoother = smoother
         self.weight = weight
         self.max_iter = 100
-        self.f = physical_rhs.to(self.device) # torch.from_numpy(physical_rhs[np.newaxis, np.newaxis, :, :].astype(np.float64)).to(self.device)
-        # self.bc_value = torch.zeros_like(self.f, dtype=torch.double).to(self.device)
+        self.f = physical_rhs.to(self.device) 
         u, res, self.run_time, self.convergence_factor, self.n_iterations = self.solve_poisson(1e-3)
-        # torch.autograd.set_detect_anomaly(True)
-        # return self.run_time, self.convergence_factor, self.n_iterations
 
     def weighted_jacobi_smoother(self, u, f, omega):
         h = 1 / np.shape(u)[-1]
@@ -49,30 +46,14 @@ class Solver(nn.Module):
             u = u + ( 1 - self.trainable_weight) * omega * (f - u_conv_fixed) / fixed_central_coeff + self.trainable_weight * omega * (f - u_conv_trainable) / trainable_central_coeff
         else:
             u = u + omega * (f - u_conv_fixed) / fixed_central_coeff
-        # print(u[:, :, :, 0], u[:, :, :, -1], u[:, :, 0, :], u[:, :, -1, :])
-        # u = u.clone().to(self.device)
-        # u[:, :, :, 0] = 0
-        # u[:, :, :, -1] = 0
-        # u[:, :, 0, :] = 0
-        # u[:, :, -1, :] = 0
         return u
 
     def restrict(self, u):
-        u = F.avg_pool2d(u, 2)
-        u = u.clone().to(self.device)
-        u[:, :, :, 0] = 0
-        u[:, :, :, -1] = 0
-        u[:, :, 0, :] = 0
-        u[:, :, -1, :] = 0
+        u = F.interpolate(u, scale_factor=0.5, mode='bilinear', align_corners=True) # F.avg_pool2d(u, 2)
         return u
 
     def prolongate(self, u):
         u = F.interpolate(u, scale_factor=2, mode='bilinear', align_corners=True)
-        u = u.clone().to(self.device)
-        u[:, :, :, 0] = 0
-        u[:, :, :, -1] = 0
-        u[:, :, 0, :] = 0
-        u[:, :, -1, :] = 0
         return u
 
     def cgs(self, u, f):
@@ -84,7 +65,7 @@ class Solver(nn.Module):
         A += np.kron(np.diag(np.ones(N), 0), D)
         A = -A*int(len(u_np)**0.5)**2
         u_np = np.linalg.inv(A) @ f_np
-        return torch.from_numpy(u_np.reshape(int(np.shape(u_np)[-1]**0.5), int(np.shape(u_np)[-1]**0.5))[np.newaxis, np.newaxis, :, :].astype(np.float64))
+        return torch.from_numpy(u_np.reshape(int(np.shape(u_np)[-1]**0.5), int(np.shape(u_np)[-1]**0.5))[np.newaxis, np.newaxis, :, :].astype(np.float64)).to(self.device)
 
     def flex_cycle(self, u):
         levels=0
@@ -93,10 +74,8 @@ class Solver(nn.Module):
         udictionary[levels] = u.clone().to(self.device)
         fdictionary[levels] = self.f.clone().to(self.device)
         for i, operator in enumerate(self.intergrid_operators):
-            # print(levels)
             if operator == -1:
                 if self.smoother[i] == 1:
-                    # print(f'smoother, level: {levels}')
                     udictionary[levels] = self.weighted_jacobi_smoother(udictionary[levels], fdictionary[levels], self.weight[i])
                 elif self.smoother[i] == 2:
                     udictionary[levels] = self.cgs(udictionary[levels], fdictionary[levels])
@@ -107,12 +86,12 @@ class Solver(nn.Module):
                 udictionary[levels + 1] = torch.zeros_like(fdictionary[levels + 1])
                 levels += 1
             elif operator == 1:
+                udictionary[levels - 1] += self.prolongate(udictionary[levels])
+                levels -= 1
                 if self.smoother[i] == 1:
                     udictionary[levels] = self.weighted_jacobi_smoother(udictionary[levels], fdictionary[levels], self.weight[i])
                 elif self.smoother[i] == 2:
                     udictionary[levels] = self.cgs(udictionary[levels], fdictionary[levels])
-                udictionary[levels - 1] += self.prolongate(udictionary[levels])
-                levels -= 1
             else:
                 if self.smoother[i] == 1:
                     udictionary[levels] = self.weighted_jacobi_smoother(udictionary[levels], fdictionary[levels], self.weight[i])
@@ -127,18 +106,17 @@ class Solver(nn.Module):
         u = torch.zeros_like(self.f).to(self.device)
         conv_holder = F.conv2d(u, (1 / (1 / np.shape(u)[-1])**2) * self.fixed_stencil, padding=0)
         conv_holder = F.pad(conv_holder, (1, 1, 1, 1), "constant", 0)
-        res = torch.sum(torch.abs(self.f - conv_holder))/torch.sum(torch.abs(self.f)) #np.inner((f - conv_holder).detach().cpu().numpy()[0, 0, :, :].flatten(),
-              #         (f - conv_holder).detach().cpu().numpy()[0, 0, :, :].flatten())
+        res = torch.sum(torch.abs(self.f - conv_holder))/torch.sum(torch.abs(self.f)) 
         prevres = res
         iter = 0
         convfactorlist = []
-        while res > tol and iter < self.max_iter: #00:
+        while res > tol and iter < self.max_iter:
             u = self.flex_cycle(u)
             conv_holder = F.conv2d(u, (1 / (1 / np.shape(u)[-1])**2) * self.fixed_stencil, padding=0)
-            conv_holder = F.pad(conv_holder, (1, 1, 1, 1), "constant", 0)
-            res = torch.sum(torch.abs(self.f - conv_holder))/torch.sum(torch.abs(self.f)) #np.inner((f - conv_holder).detach().cpu().numpy()[0, 0, :, :].flatten(),
-                  #         (f - conv_holder).detach().cpu().numpy()[0, 0, :, :].flatten())
-            # print(res.detach().cpu().numpy())
+            # conv_holder = F.pad(conv_holder, (1, 1, 1, 1), "constant", 0)
+            # print(self.f.shape, conv_holder.shape)
+            res = torch.sum(torch.abs(self.f[0, 0, 1:-1, 1:-1] - conv_holder))/torch.sum(torch.abs(self.f[0, 0, 1:-1, 1:-1])) 
+            # print(torch.abs(self.f[0, 0, 1:-1, 1:-1] - conv_holder))
             resratio = res / prevres
             convfactorlist.append(resratio)
             prevres = res
@@ -146,14 +124,15 @@ class Solver(nn.Module):
             iter += 1
         end_time = time.time()
         # print(f'solve time: {end_time - start_time}, convergence factor: {torch.mean(torch.stack(convfactorlist))}') # np.mean(convfactorlist)}, n iterations:  {iter}')
-        # del(conv_holder, f, stencil)
-        # torch.cuda.empty_cache()
         return u, res, end_time - start_time, torch.mean(torch.stack(convfactorlist)).item(), iter
 
     def forward(self, f, tol, optimizer, loss_fn):
-        self.f = f.double().to(self.device)
+        # self.f = f.double().to(self.device)
+        # conv_holder = F.conv2d(self.f, (1 / (1 / np.shape(self.f)[-1])**2) * self.fixed_stencil, padding=0)
+        # conv_holder = F.pad(conv_holder, (1, 1, 1, 1), "constant", 0)
+        # self.f = conv_holder
         self.trainable = True
-        self.max_iter = 1
+        self.max_iter = 5
         u = torch.zeros_like(self.f)
         u, res, time, conv_factor, iter = self.solve_poisson(tol) # self.intergrid_operators, self.smoother, self.weight)
         return u, res, time, conv_factor, iter, self.trainable_stencil, self.trainable_weight
@@ -162,12 +141,4 @@ class Solver(nn.Module):
         save_dir: str = os.path.join(checkpoint_path, 'pth')
         os.makedirs(save_dir, exist_ok=True)
         save_path: str = os.path.join(save_dir, f'epoch_{epoch}.pth')
-        # print(self.trainable_stencil)
-        # print(self.trainable_weight)
         torch.save(self.trainable_stencil, save_path)
-# 3rd try with more rigorous optimization
-# intergrid_operators = [-1,-1,0,-1,-1,1,1,-1,1,1,1,0,0]  # Example operators
-# smoother = [0,0,1,1,0,2,1,0,1,0,1,1,1,1]  # Example smoothers
-# weight = [0,0,1.75,1.8,0,1,1.65,0,1.55,0,1.9,1.3,0.5499999999999999,1.9]  # Example weights
-
-# model = FlexibleMGTorch(intergrid_operators, smoother, weight)
