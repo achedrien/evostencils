@@ -1,6 +1,6 @@
 # Installation de Guix
 
-Ouvrir un terminal et taper les commandes suivantes :
+Pour installer Guix, ouvrir un terminal et taper les commandes suivantes :
 
 ```
 cd /tmp (ou autre)
@@ -20,9 +20,9 @@ Ouvrir le fichier channel configuration (`~/.config/guix/channels.scm`) sinon le
       %default-channels)
 ```
 
-Dans le terminal taper la commande `guix pull` pour mettre à jour guix (cela prend un moment).
+Dans le terminal, taper la commande `guix pull` pour mettre à jour Guix (cela prend un moment).
 
-# Compiler un code utilisant composyx
+# Compiler et exécuter un code utilisant composyx
 
 ## Création d'un fichier `CMakeLists.txt`
 
@@ -58,7 +58,7 @@ cmake -B build`
 cmake --build build --target exec
 ```
 
-## Execution
+## Exécution
 
 ```
 build/exec
