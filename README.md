@@ -54,7 +54,7 @@ Se placer à l'endroit où se trouve les fichiers `.cpp` et `CMakeLists.txt`.
 
 Pour compiler le code :
 ```
-cmake -B build`
+cmake -B build
 cmake --build build --target exec
 ```
 
