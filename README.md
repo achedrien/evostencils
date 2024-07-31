@@ -2,7 +2,8 @@
 
 Ouvrir un terminal et taper les commandes suivantes :
 
-```cd /tmp (ou autre)
+```
+cd /tmp (ou autre)
 wget https://git.savannah.gnu.org/cgit/guix.git/plain/etc/guix-install.sh
 chmod +x guix-install.sh
 ./guix-install.sh
