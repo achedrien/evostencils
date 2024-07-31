@@ -6,7 +6,6 @@ import os
 
 
 dataset_root = "./data/train/"
-shape = "curve"
 image_size = 128
 start_index = 1
 num_instances = 1000
