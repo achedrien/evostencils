@@ -48,7 +48,8 @@ target_link_libraries(exec PRIVATE MAPHYSPP::maphyspp)
 Pour ouvrir un terminal un terminal avec composyx installé il faut taper la commande :
 ```
 guix shell --pure maphys++ -D maphys++ coreutils ncurses bash -- bash --norc
-```.
+```
+.
 Se placer à l'endroit où se trouve les fichiers `.cpp` et `CMakeLists.txt`.
 
 Pour compiler le code :
