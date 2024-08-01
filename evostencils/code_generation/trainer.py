@@ -114,6 +114,8 @@ class Trainer:
         elif optimizer == 'sgd':
             self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.initial_lr)
         elif optimizer == 'LBFGS':
+            for param in model.parameters():
+                print(param, param.size())
             self.optimizer = torch.optim.LBFGS(self.model.parameters(), lr=1, max_iter=50, max_eval=None, tolerance_grad=1e-15, tolerance_change=1e-15, history_size=101, line_search_fn='strong_wolfe')
         else:
             raise NotImplementedError
@@ -159,7 +161,7 @@ class Trainer:
                 conv_holder = F.conv2d(u.type(torch.float64), (1 / (1 / np.shape(u)[-1])**2) * fixed_stencil, padding=0)
                 f = F.pad(conv_holder, (1, 1, 1, 1), "constant", 0)
                 tup: typing.Tuple[torch.Tensor, int] = self.model(f, 1e-3, self.optimizer, F.mse_loss)
-                y, res, time, conv_factor, iterations_used, trainable_stencils, trainable_weight = tup
+                y, res, time, conv_factor, iterations_used, trainable_stencils, trainable_weight, trainable_omega = tup
                 residue: torch.Tensor = square_residue(y, f.to(self.device), f.to(self.device), reduction='none')
 
                 loss_x: torch.Tensor =  norm(residue).mean().to(self.device) # torch.tensor(time*conv_factor, requires_grad=True).to(self.device) #    *time*conv_factor*iterations_used
@@ -185,11 +187,12 @@ class Trainer:
 
                 def temp():
                     tup: typing.Tuple[torch.Tensor, int] = self.model(batch['bc_value'], 1e-3, self.optimizer, F.mse_loss)
-                    y, res, time, conv_factor, iterations_used, trainable_stencils, trainable_weight = tup
+                    y, res, time, conv_factor, iterations_used, trainable_stencils, trainable_weight, trainable_omega = tup
                     residue: torch.Tensor = square_residue(y, batch['bc_mask'].to(self.device), f, reduction='none')
                     loss_x: torch.Tensor = torch.tensor(conv_factor, requires_grad=True).to(self.device) 
                     with torch.autograd.set_detect_anomaly(True):
                         loss_x.backward(retain_graph=True)
+                    print(f'Gradients for trainable_omega: {trainable_omega.grad}')
                     return loss_x
 
                 # loss_x: torch.Tensor =  norm(residue).mean().to(self.device) # 
@@ -215,11 +218,11 @@ class Trainer:
                         self.epochs_no_improve += 1
                         if self.epochs_no_improve == self.patience:
                             self.max_epoch = epoch
-                            return time, conv_factor, iterations_used, trainable_stencils, trainable_weight
+                            return time, conv_factor, iterations_used, trainable_stencils, trainable_weight, trainable_omega
                     self.model.train()
             if self.verbose > 0:
-                self.logger.info('trainable stencils = {trainable_stencils}, trainable weight = {trainable_weight}, time = {time}, conv_factor = {conv_factor}, iterations_used = {iterations_used}'.format(trainable_stencils=trainable_stencils, trainable_weight=trainable_weight, time=time, conv_factor=conv_factor, iterations_used=iterations_used))
+                self.logger.info('trainable omega = {trainable_omega}, trainable weight = {trainable_weight}, time = {time}, conv_factor = {conv_factor}, iterations_used = {iterations_used}'.format(trainable_omega=trainable_omega, trainable_weight=trainable_weight, time=time, conv_factor=conv_factor, iterations_used=iterations_used))
             self.scheduler.step()
             if (epoch + 1) % self.save_every == 0 or epoch == self.max_epoch - 1:
                 self.model.save(self.experiment_checkpoint_path, epoch + 1)
-        return time, conv_factor, iterations_used, trainable_stencils, trainable_weight
+        return time, conv_factor, iterations_used, trainable_stencils, trainable_weight, trainable_omega

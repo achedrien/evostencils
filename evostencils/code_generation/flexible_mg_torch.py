@@ -8,10 +8,11 @@ import os
 
 class Solver(nn.Module):
     def __init__(self, physical_rhs, intergrid_operators, smoother, weight, trainable=True, device=None,
-                 trainable_stencil = nn.Parameter(torch.tensor([[0.0, 1.0, 0.0],
+                 trainable_stencil = nn.Parameter(torch.tensor([[[[0.0, 1.0, 0.0],
                                                                 [1.0, -4.0, 1.0],
-                                                                [0.0, 1.0, 0.0]], dtype=torch.float64).unsqueeze(0).unsqueeze(0)),
-                 trainable_weight = nn.Parameter(0.1*torch.rand(1, generator=torch.Generator(), dtype=torch.double, requires_grad=True).unsqueeze(0).unsqueeze(0).unsqueeze(0))):
+                                                                [0.0, 1.0, 0.0]]]], dtype=torch.float64)),
+                 trainable_weight = nn.Parameter(0.1*torch.rand(1, 1, 1, 1, generator=torch.Generator(), dtype=torch.double, requires_grad=True)),
+                 trainable_omega = nn.Parameter(torch.rand(1, 1, 1, 10, dtype=torch.double),  requires_grad=True)):
         super(Solver, self).__init__()
         self.device = device if device is not None else torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.fixed_stencil = torch.tensor([[0.0, 1.0, 0.0],
@@ -19,9 +20,10 @@ class Solver(nn.Module):
                                            [0.0, 1.0, 0.0]], dtype=torch.float64).to(self.device).unsqueeze(0).unsqueeze(0)
         self.trainable = trainable
         if self.trainable:
-            self.trainable_stencil = nn.Parameter(trainable_stencil.to(self.device))
+            self.trainable_stencil = self.fixed_stencil # nn.Parameter(trainable_stencil.to(self.device))
             # self.trainable_stencil = nn.Parameter(4*torch.rand_like(self.fixed_stencil, dtype=torch.double, requires_grad=True)).to(self.device)
-            self.trainable_weight = 1 # nn.Parameter(trainable_weight.to(self.device)).clamp(0, 1)
+            self.trainable_weight = 0 # nn.Parameter(trainable_weight.to(self.device)).clamp(0, 1)
+            self.trainable_omega = nn.Parameter(trainable_omega.to(self.device))
         else:
             self.trainable_weight = 1
         self.intergrid_operators = intergrid_operators
@@ -53,6 +55,22 @@ class Solver(nn.Module):
         u[:, :, -1, :] = 0
         return u
 
+    def chebyshev_smoother(self, u, f):
+        h = 1 / np.shape(u)[-1]
+        fixed_stencil = (1 / h**2) * self.fixed_stencil
+        fixed_central_coeff = fixed_stencil[0, 0, 1, 1]
+        for i in range(10):
+            omega = self.trainable_omega[0, 0, 0, i]
+            u_conv_fixed = F.conv2d(u, fixed_stencil, padding=0)
+            u_conv_fixed = F.pad(u_conv_fixed, (1, 1, 1, 1), "constant", 0)
+            u = u + torch.multiply(omega, (f - u_conv_fixed) / fixed_central_coeff)
+            u = u.clone()
+            u[:, :, :, 0] = 0
+            u[:, :, :, -1] = 0
+            u[:, :, 0, :] = 0
+            u[:, :, -1, :] = 0
+        return u
+    
     def restrict(self, u):
         u = F.interpolate(u, scale_factor=0.5, mode='bilinear', align_corners=True) # F.avg_pool2d(u, 2)
         u = u.clone()
@@ -93,6 +111,8 @@ class Solver(nn.Module):
                 if self.smoother[i] == 1:
                     udictionary[levels] = self.weighted_jacobi_smoother(udictionary[levels], fdictionary[levels], self.weight[i])
                 elif self.smoother[i] == 2:
+                    udictionary[levels] = self.chebyshev_smoother(udictionary[levels], fdictionary[levels])
+                elif self.smoother[i] == 3:
                     udictionary[levels] = self.cgs(udictionary[levels], fdictionary[levels])
                 conv_holder = F.conv2d(udictionary[levels].clone(), (1 / (1 / np.shape(udictionary[levels].clone())[-1])**2) * self.fixed_stencil.clone(), padding=0)
                 conv_holder = F.pad(conv_holder, (1, 1, 1, 1), "constant", 0)
@@ -106,11 +126,15 @@ class Solver(nn.Module):
                 if self.smoother[i] == 1:
                     udictionary[levels] = self.weighted_jacobi_smoother(udictionary[levels], fdictionary[levels], self.weight[i])
                 elif self.smoother[i] == 2:
+                    udictionary[levels] = self.chebyshev_smoother(udictionary[levels], fdictionary[levels])
+                elif self.smoother[i] == 3:
                     udictionary[levels] = self.cgs(udictionary[levels], fdictionary[levels])
             else:
                 if self.smoother[i] == 1:
                     udictionary[levels] = self.weighted_jacobi_smoother(udictionary[levels], fdictionary[levels], self.weight[i])
                 elif self.smoother[i] == 2:
+                    udictionary[levels] = self.chebyshev_smoother(udictionary[levels], fdictionary[levels])
+                elif self.smoother[i] == 3:
                     udictionary[levels] = self.cgs(udictionary[levels], fdictionary[levels])
         result = udictionary[0]
         del(fdictionary, udictionary)
@@ -148,7 +172,7 @@ class Solver(nn.Module):
         self.max_iter = 3
         u = torch.zeros_like(self.f)
         u, res, time, conv_factor, iter = self.solve_poisson(tol)
-        return u, res, time, conv_factor, iter, self.trainable_stencil, self.trainable_weight
+        return u, res, time, conv_factor, iter, self.trainable_stencil, self.trainable_weight, self.trainable_omega
     
     def save(self, checkpoint_path: str, epoch: int):
         save_dir: str = os.path.join(checkpoint_path, 'pth')

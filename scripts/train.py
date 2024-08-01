@@ -101,8 +101,8 @@ def main() -> None:
     physical_rhs = (2 ** (4 * a)) * g(a, Y) * g(a - 2, X) * h(a, X)
     physical_rhs = torch.from_numpy(physical_rhs[np.newaxis, np.newaxis, :, :].astype(np.float64))
     solver = Solver.Solver(physical_rhs, [-1, 0, -1, 0, -1, 0, -1, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0],
-                          [1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1], 
-                          [1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1], trainable = True, device=device)
+                          [2, 2, 2, 2, 2, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2], 
+                          [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], trainable = True, device=device)
     trainer = Trainer.Trainer(experiment_name, experiment_checkpoint_path, device,
                             solver, logger,
                             opt.optimizer, opt.scheduler, opt.initial_lr, opt.lambda_1, opt.lambda_2,
