@@ -23,7 +23,7 @@ class Solver(nn.Module):
             self.trainable_stencil = self.fixed_stencil # nn.Parameter(trainable_stencil.to(self.device))
             # self.trainable_stencil = nn.Parameter(4*torch.rand_like(self.fixed_stencil, dtype=torch.double, requires_grad=True)).to(self.device)
             self.trainable_weight = 0 # nn.Parameter(trainable_weight.to(self.device)).clamp(0, 1)
-            self.trainable_omega = nn.Parameter(torch.tensor([[[[0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5]]]], dtype=torch.double))# .to(self.device)
+            self.trainable_omega = nn.Parameter(torch.tensor([[[[0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5]]]], dtype=torch.double)) # .to(self.device)
             # print(self.trainable_omega.grad)
         else:
             self.trainable_weight = 1
@@ -65,10 +65,10 @@ class Solver(nn.Module):
             u_conv_fixed = F.pad(u_conv_fixed, (1, 1, 1, 1), "constant", 0)
             u = u + ((f - u_conv_fixed) / fixed_central_coeff).mul(self.trainable_omega[0, 0, 0, i])
             u = u.clone()
-            u[:, :, :, 0] = 0
-            u[:, :, :, -1] = 0
-            u[:, :, 0, :] = 0
-            u[:, :, -1, :] = 0
+            # u[:, :, :, 0] = 0
+            # u[:, :, :, -1] = 0
+            # u[:, :, 0, :] = 0
+            # u[:, :, -1, :] = 0
         # print(f'Gradients for trainable_omega: {self.trainable_omega.grad}')
         return u
     def restrict(self, u):
@@ -171,7 +171,10 @@ class Solver(nn.Module):
         self.trainable = True
         self.max_iter = 3
         u = torch.zeros_like(self.f)
-        u, res, time, conv_factor, iter = self.solve_poisson(tol)
+        with torch.enable_grad():
+            u, res, time, conv_factor, iter = self.solve_poisson(tol)
+        #     loss = loss_fn(u, self.f)
+        # u, res, time, conv_factor, iter = self.solve_poisson(tol)
         return u, res, time, conv_factor, iter, self.trainable_stencil, self.trainable_weight, self.trainable_omega
     
     def save(self, checkpoint_path: str, epoch: int):

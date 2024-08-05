@@ -114,8 +114,8 @@ class Trainer:
         elif optimizer == 'sgd':
             self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.initial_lr)
         elif optimizer == 'LBFGS':
-            for param in model.parameters():
-                print(param, param.size())
+            # for param in model.parameters():
+                # print(param, param.size())
             self.optimizer = torch.optim.LBFGS(self.model.parameters(), lr=1, max_iter=50, max_eval=None, tolerance_grad=1e-15, tolerance_change=1e-15, history_size=101, line_search_fn='strong_wolfe')
         else:
             raise NotImplementedError
@@ -192,7 +192,8 @@ class Trainer:
                     y, res, time, conv_factor, iterations_used, trainable_stencils, trainable_weight, trainable_omega = tup
                     residue: torch.Tensor = square_residue(y, batch['x'].to(self.device), f, reduction='none')
                     # print((torch.mean(residue)**0.5)/torch.mean(batch['b']))
-                    loss_x: torch.Tensor = torch.tensor((torch.mean(residue)**0.5)/torch.mean(batch['b']), requires_grad=True).to(self.device)
+                    print(trainable_omega)
+                    loss_x: torch.Tensor = torch.tensor(conv_factor, requires_grad=True).to(self.device)
                     with torch.autograd.set_detect_anomaly(True):
                         loss_x.backward(retain_graph=True)
                         # print(loss_x.grad)
