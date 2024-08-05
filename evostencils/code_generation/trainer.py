@@ -66,11 +66,11 @@ class SynDat(Dataset):
 
     def __getitem__(self, index: int):
         data: np.ndarray = np.load(self.instance_path_lst[index], allow_pickle=True)
-        bc_value, bc_mask = data
-        bc_value: torch.Tensor = torch.from_numpy(bc_value).float().unsqueeze(0)
-        bc_mask: torch.Tensor = torch.from_numpy(bc_mask).float().unsqueeze(0)
-        return {'bc_value': bc_value,
-                'bc_mask': bc_mask}
+        x, b = data
+        x: torch.Tensor = torch.from_numpy(x).float().unsqueeze(0)
+        b: torch.Tensor = torch.from_numpy(b).float().unsqueeze(0)
+        return {'x': x,
+                'b': b}
 
     def __len__(self):
         return len(self.instance_path_lst) // 100
@@ -153,8 +153,9 @@ class Trainer:
             train_loss_dict: typing.Dict[str, typing.List[torch.Tensor]] = {}
 
             for batch in self.train_loader:
-                u: typing.Optional[torch.Tensor] = batch['bc_mask'][0, 0, :, :, :, :].to(self.device)
-                f: typing.Optional[torch.Tensor] = batch['bc_value'][0, 0, :, :, :, :].to(self.device)
+                u: typing.Optional[torch.Tensor] = batch['x'][0, 0, :, :, :, :].to(self.device)
+                f: typing.Optional[torch.Tensor] = batch['b'][0, 0, :, :, :, :].to(self.device)
+                # print(u, f)
                 fixed_stencil = torch.tensor([[0.0, 1.0, 0.0],
                                   [1.0, -4.0, 1.0],
                                   [0.0, 1.0, 0.0]], dtype=torch.float64).to(self.device).unsqueeze(0).unsqueeze(0)
@@ -186,13 +187,16 @@ class Trainer:
                     train_loss_dict['loss']: typing.List[torch.Tensor] = [loss]
 
                 def temp():
-                    tup: typing.Tuple[torch.Tensor, int] = self.model(batch['bc_value'], 1e-3, self.optimizer, F.mse_loss)
+                    self.optimizer.zero_grad()
+                    tup: typing.Tuple[torch.Tensor, int] = self.model(batch['b'], 1e-3, self.optimizer, F.mse_loss)
                     y, res, time, conv_factor, iterations_used, trainable_stencils, trainable_weight, trainable_omega = tup
-                    residue: torch.Tensor = square_residue(y, batch['bc_mask'].to(self.device), f, reduction='none')
-                    loss_x: torch.Tensor = torch.tensor(conv_factor, requires_grad=True).to(self.device) 
+                    residue: torch.Tensor = square_residue(y, batch['x'].to(self.device), f, reduction='none')
+                    # print((torch.mean(residue)**0.5)/torch.mean(batch['b']))
+                    loss_x: torch.Tensor = torch.tensor((torch.mean(residue)**0.5)/torch.mean(batch['b']), requires_grad=True).to(self.device)
                     with torch.autograd.set_detect_anomaly(True):
                         loss_x.backward(retain_graph=True)
-                    print(f'Gradients for trainable_omega: {trainable_omega.grad}')
+                        # print(loss_x.grad)
+                    # print(f'Gradients for trainable_omega: {trainable_omega.grad}')
                     return loss_x
 
                 # loss_x: torch.Tensor =  norm(residue).mean().to(self.device) # 

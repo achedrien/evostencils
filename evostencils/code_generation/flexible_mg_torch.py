@@ -23,7 +23,8 @@ class Solver(nn.Module):
             self.trainable_stencil = self.fixed_stencil # nn.Parameter(trainable_stencil.to(self.device))
             # self.trainable_stencil = nn.Parameter(4*torch.rand_like(self.fixed_stencil, dtype=torch.double, requires_grad=True)).to(self.device)
             self.trainable_weight = 0 # nn.Parameter(trainable_weight.to(self.device)).clamp(0, 1)
-            self.trainable_omega = nn.Parameter(trainable_omega.to(self.device))
+            self.trainable_omega = nn.Parameter(torch.tensor([[[[0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5]]]], dtype=torch.double))# .to(self.device)
+            # print(self.trainable_omega.grad)
         else:
             self.trainable_weight = 1
         self.intergrid_operators = intergrid_operators
@@ -60,17 +61,16 @@ class Solver(nn.Module):
         fixed_stencil = (1 / h**2) * self.fixed_stencil
         fixed_central_coeff = fixed_stencil[0, 0, 1, 1]
         for i in range(10):
-            omega = self.trainable_omega[0, 0, 0, i]
             u_conv_fixed = F.conv2d(u, fixed_stencil, padding=0)
             u_conv_fixed = F.pad(u_conv_fixed, (1, 1, 1, 1), "constant", 0)
-            u = u + torch.multiply(omega, (f - u_conv_fixed) / fixed_central_coeff)
+            u = u + ((f - u_conv_fixed) / fixed_central_coeff).mul(self.trainable_omega[0, 0, 0, i])
             u = u.clone()
             u[:, :, :, 0] = 0
             u[:, :, :, -1] = 0
             u[:, :, 0, :] = 0
             u[:, :, -1, :] = 0
+        # print(f'Gradients for trainable_omega: {self.trainable_omega.grad}')
         return u
-    
     def restrict(self, u):
         u = F.interpolate(u, scale_factor=0.5, mode='bilinear', align_corners=True) # F.avg_pool2d(u, 2)
         u = u.clone()
