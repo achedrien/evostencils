@@ -23,7 +23,7 @@ class Solver(nn.Module):
             self.trainable_stencil = self.fixed_stencil # nn.Parameter(trainable_stencil.to(self.device))
             # self.trainable_stencil = nn.Parameter(4*torch.rand_like(self.fixed_stencil, dtype=torch.double, requires_grad=True)).to(self.device)
             self.trainable_weight = 0 # nn.Parameter(trainable_weight.to(self.device)).clamp(0, 1)
-            self.trainable_omega = nn.Parameter(torch.tensor([[[[0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5]]]], dtype=torch.double)) # .to(self.device)
+            self.trainable_omega = nn.Parameter(torch.ones(len(intergrid_operators), 10, dtype=torch.double).to(self.device), requires_grad=True)
             # print(self.trainable_omega.grad)
         else:
             self.trainable_weight = 1
@@ -31,7 +31,7 @@ class Solver(nn.Module):
         self.smoother = smoother
         self.weight = weight
         self.max_iter = 100
-        self.f = physical_rhs.to(self.device) 
+        self.f = physical_rhs.to(self.device)
         u, res, self.run_time, self.convergence_factor, self.n_iterations = self.solve_poisson(1e-3)
 
     def weighted_jacobi_smoother(self, u, f, omega):
@@ -49,11 +49,11 @@ class Solver(nn.Module):
             u = u + ( 1 - self.trainable_weight) * omega * (f - u_conv_fixed) / fixed_central_coeff + self.trainable_weight * omega * (f - u_conv_trainable) / trainable_central_coeff
         else:
             u = u + omega * (f - u_conv_fixed) / fixed_central_coeff
-        u = u.clone()
-        u[:, :, :, 0] = 0
-        u[:, :, :, -1] = 0
-        u[:, :, 0, :] = 0
-        u[:, :, -1, :] = 0
+        # u = u.clone()
+        # u[:, :, :, 0] = 0
+        # u[:, :, :, -1] = 0
+        # u[:, :, 0, :] = 0
+        # u[:, :, -1, :] = 0
         return u
 
     def chebyshev_smoother(self, u, f):
@@ -63,30 +63,30 @@ class Solver(nn.Module):
         for i in range(10):
             u_conv_fixed = F.conv2d(u, fixed_stencil, padding=0)
             u_conv_fixed = F.pad(u_conv_fixed, (1, 1, 1, 1), "constant", 0)
-            u = u + ((f - u_conv_fixed) / fixed_central_coeff).mul(self.trainable_omega[0, 0, 0, i])
-            u = u.clone()
+            u = u + F.conv2d(((f - u_conv_fixed) / fixed_central_coeff), (self.trainable_omega[self.n_operations, i]))
+            # u = u.clone()
             # u[:, :, :, 0] = 0
             # u[:, :, :, -1] = 0
             # u[:, :, 0, :] = 0
             # u[:, :, -1, :] = 0
-        # print(f'Gradients for trainable_omega: {self.trainable_omega.grad}')
+        print(f'Gradients for trainable_omega: {self.trainable_omega.grad}')
         return u
     def restrict(self, u):
         u = F.interpolate(u, scale_factor=0.5, mode='bilinear', align_corners=True) # F.avg_pool2d(u, 2)
-        u = u.clone()
-        u[:, :, :, 0] = 0
-        u[:, :, :, -1] = 0
-        u[:, :, 0, :] = 0
-        u[:, :, -1, :] = 0
+        # u = u.clone()
+        # u[:, :, :, 0] = 0
+        # u[:, :, :, -1] = 0
+        # u[:, :, 0, :] = 0
+        # u[:, :, -1, :] = 0
         return u
 
     def prolongate(self, u):
         u = F.interpolate(u, scale_factor=2, mode='bilinear', align_corners=True)
-        u = u.clone()
-        u[:, :, :, 0] = 0
-        u[:, :, :, -1] = 0
-        u[:, :, 0, :] = 0
-        u[:, :, -1, :] = 0
+        # u = u.clone()
+        # u[:, :, :, 0] = 0
+        # u[:, :, :, -1] = 0
+        # u[:, :, 0, :] = 0
+        # u[:, :, -1, :] = 0
         return u
 
     def cgs(self, u, f):
@@ -136,6 +136,7 @@ class Solver(nn.Module):
                     udictionary[levels] = self.chebyshev_smoother(udictionary[levels], fdictionary[levels])
                 elif self.smoother[i] == 3:
                     udictionary[levels] = self.cgs(udictionary[levels], fdictionary[levels])
+            self.n_operations += 1
         result = udictionary[0]
         del(fdictionary, udictionary)
         return result
@@ -150,6 +151,7 @@ class Solver(nn.Module):
         iter = 0
         convfactorlist = []
         while res > tol and iter < self.max_iter:
+            self.n_operations = 0
             u = self.flex_cycle(u)
             conv_holder = F.conv2d(u, (1 / (1 / np.shape(u)[-1])**2) * self.fixed_stencil, padding=0)
             conv_holder = F.pad(conv_holder, (1, 1, 1, 1), "constant", 0)
@@ -163,7 +165,7 @@ class Solver(nn.Module):
         # print(f'solve time: {end_time - start_time}, convergence factor: {torch.mean(torch.stack(convfactorlist))}') 
         return u, res, end_time - start_time, torch.mean(torch.stack(convfactorlist)).item(), iter
 
-    def forward(self, f, tol, optimizer, loss_fn):
+    def forward(self, f, tol, optimizer):
         if f.dim() == 6:
             self.f = f.double().to(self.device)[0, 0, :, :, :, :]
         else:
@@ -171,10 +173,9 @@ class Solver(nn.Module):
         self.trainable = True
         self.max_iter = 3
         u = torch.zeros_like(self.f)
+        optimizer.zero_grad()
         with torch.enable_grad():
             u, res, time, conv_factor, iter = self.solve_poisson(tol)
-        #     loss = loss_fn(u, self.f)
-        # u, res, time, conv_factor, iter = self.solve_poisson(tol)
         return u, res, time, conv_factor, iter, self.trainable_stencil, self.trainable_weight, self.trainable_omega
     
     def save(self, checkpoint_path: str, epoch: int):

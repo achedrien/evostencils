@@ -161,47 +161,22 @@ class Trainer:
                                   [0.0, 1.0, 0.0]], dtype=torch.float64).to(self.device).unsqueeze(0).unsqueeze(0)
                 conv_holder = F.conv2d(u.type(torch.float64), (1 / (1 / np.shape(u)[-1])**2) * fixed_stencil, padding=0)
                 f = F.pad(conv_holder, (1, 1, 1, 1), "constant", 0)
-                tup: typing.Tuple[torch.Tensor, int] = self.model(f, 1e-3, self.optimizer, F.mse_loss)
+                tup: typing.Tuple[torch.Tensor, int] = self.model(f, 1e-3, self.optimizer)
                 y, res, time, conv_factor, iterations_used, trainable_stencils, trainable_weight, trainable_omega = tup
                 residue: torch.Tensor = square_residue(y, f.to(self.device), f.to(self.device), reduction='none')
 
-                loss_x: torch.Tensor =  norm(residue).mean().to(self.device) # torch.tensor(time*conv_factor, requires_grad=True).to(self.device) #    *time*conv_factor*iterations_used
-
-                iterations_used = torch.tensor([iterations_used], dtype=torch.float64).to(self.device)
-
-                if 'loss_x' in train_loss_dict:
-                    train_loss_dict['loss_x'].append(loss_x)
-                else:
-                    train_loss_dict['loss_x']: typing.List[torch.Tensor] = [loss_x]
-
-                if 'iterations_used' in train_loss_dict:
-                    train_loss_dict['iterations_used'].append(iterations_used)
-                else:
-                    train_loss_dict['iterations_used']: typing.List[torch.Tensor] = [iterations_used]
-
-                loss = loss_x
-
-                if 'loss' in train_loss_dict:
-                    train_loss_dict['loss'].append(loss)
-                else:
-                    train_loss_dict['loss']: typing.List[torch.Tensor] = [loss]
-
-                def temp():
+                def closure():
                     self.optimizer.zero_grad()
-                    tup: typing.Tuple[torch.Tensor, int] = self.model(batch['b'], 1e-3, self.optimizer, F.mse_loss)
+                    tup = self.model(batch['b'], 1e-3, self.optimizer)
                     y, res, time, conv_factor, iterations_used, trainable_stencils, trainable_weight, trainable_omega = tup
-                    residue: torch.Tensor = square_residue(y, batch['x'].to(self.device), f, reduction='none')
-                    # print((torch.mean(residue)**0.5)/torch.mean(batch['b']))
-                    print(trainable_omega)
-                    loss_x: torch.Tensor = torch.tensor(conv_factor, requires_grad=True).to(self.device)
+                    residue = square_residue(y, batch['x'].to(self.device), f, reduction='none')
+                    loss_x = torch.tensor((torch.mean(residue)**0.5)/torch.mean(batch['b']), requires_grad=True).to(self.device)
                     with torch.autograd.set_detect_anomaly(True):
                         loss_x.backward(retain_graph=True)
-                        # print(loss_x.grad)
-                    # print(f'Gradients for trainable_omega: {trainable_omega.grad}')
+                        print(f'Gradients for trainable_omega: {self.model.trainable_omega.grad}')
                     return loss_x
-
                 # loss_x: torch.Tensor =  norm(residue).mean().to(self.device) # 
-                self.optimizer.step(closure=temp)
+                self.optimizer.step(closure=closure)
 
             if 0 < self.evaluate_every and (epoch + 1) % self.evaluate_every == 0:
                 with torch.no_grad():
