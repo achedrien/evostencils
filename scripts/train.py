@@ -27,7 +27,7 @@ class TrainArg():
         self.initialize_trainable_parameters= 'default'
         self.optimizer='LBFGS'
         self.scheduler=["step", "1", "0.99"] 
-        self.initial_lr=0.5
+        self.initial_lr=0.05
         self.lambda_1=1
         self.lambda_2=1
         self.start_epoch=0
