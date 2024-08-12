@@ -11,7 +11,7 @@ chmod +x guix-install.sh
 
 # Installation de composyx
 
-Ouvrir le fichier channel configuration (`~/.config/guix/channels.scm`) sinon le créer. Ecrire les commandes suivantes dans le fichier :
+Ouvrir le fichier channel configuration (`~/.config/guix/channels.scm`) sinon le créer. Taper les commandes suivantes dans le fichier :
 
 ```
 (cons (channel
@@ -21,6 +21,10 @@ Ouvrir le fichier channel configuration (`~/.config/guix/channels.scm`) sinon le
 ```
 
 Dans le terminal, taper la commande `guix pull` pour mettre à jour Guix (cela prend un moment).
+
+# Installation du code multigrille composyx
+
+Pour installer et utiliser le code multigrille composyx, se référer à [MG_composyx](https://gitlab.inria.fr/concace/internship/multigrid-expe/-/tree/main).
 
 # Compiler et exécuter un code utilisant composyx
 
