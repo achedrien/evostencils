@@ -286,7 +286,8 @@ class ProgramGenerator:
         s = "smoothers"
         w = "weights"
 
-        file = open("/home/shantalingam/Documents/stage/Evo/Stage_Multigrille/data/data.toml", "r")
+        cwd = os.path.dirname(os.path.dirname(evostencils.__file__))
+        file = open(f"{cwd}/Stage_Multigrille/data/data.toml", "r")
 
         line = file.readlines()
 
@@ -300,7 +301,7 @@ class ProgramGenerator:
 
         file.close()        
 
-        with open("/home/shantalingam/Documents/stage/Evo/Stage_Multigrille/data/data_" + str(self.mpi_rank) + ".toml", "w") as file:
+        with open(f"{cwd}/Stage_Multigrille/data/data_" + str(self.mpi_rank) + ".toml", "w") as file:
             file.writelines(line)
 
         file.close()
@@ -320,12 +321,12 @@ class ProgramGenerator:
         # "core", self.problem] + cmd_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
         # timeout=30) # capture_output=True, text=True, cwd=self.build_path, timeout=30)
         try:
-
-            executable_path = "/home/shantalingam/Documents/stage/Evo/Stage_Multigrille/build/run"
-            input_file_path = "/home/shantalingam/Documents/stage/Evo/Stage_Multigrille/data/data.toml"
+            cwd = os.path.dirname(os.path.dirname(evostencils.__file__))
+            executable_path = f"{cwd}/Stage_Multigrille/build/run"
+            input_file_path = f"{cwd}/Stage_Multigrille/data/data.toml"
 
             if self.use_mpi:
-                input_file_path = "/home/shantalingam/Documents/stage/Evo/Stage_Multigrille/data/data_" + str(self.mpi_rank) + ".toml"
+                input_file_path = f"{cwd}/Stage_Multigrille/data/data_" + str(self.mpi_rank) + ".toml"
                 a_lancer = ["mpiexec", "-n", "1", executable_path, input_file_path]
                 output = subprocess.run(a_lancer, stdout=subprocess.PIPE, check=True)
                 output_lines = output.stdout.decode('utf8') #.stdout.
@@ -469,23 +470,3 @@ class ProgramGenerator:
             *args: Variable length argument list.
         """
         pass
-
-# # Chemins vers l'exécutable et le fichier d'entrée
-# executable_path = "/home/shantalingam/Documents/stage/Evo/Stage_Multigrille/build/run"
-# input_file_path = "/home/shantalingam/Documents/stage/Evo/Stage_Multigrille/data/data.toml"
-
-# # Vérification de l'existence du fichier exécutable
-# if not os.path.exists(executable_path):
-#     print(f"Erreur : Le fichier {executable_path} n'existe pas.")
-# else:
-#     # Vérification des permissions d'exécution
-#     if not os.access(executable_path, os.X_OK):
-#         print(f"Erreur : Le fichier {executable_path} n'est pas exécutable.")
-#     else:
-#         # Exécution de la commande avec le fichier en argument
-#         try:
-#             result = subprocess.run([executable_path, input_file_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True, text=True)
-#             print(result.stdout)
-#         except subprocess.CalledProcessError as e:
-#             print(f"Command failed with return code {e.returncode}")
-#             print(f"Error output: {e.stderr}")
