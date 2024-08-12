@@ -67,6 +67,13 @@ cmake --build build --target exec
 ```
 build/exec
 ```
+# Utiliser Evostencil avec le code multigrille composyx
+
+Pour exécuter le code `optimize.py` commencer par complier le code multigrille composyx cf. [MG_composyx](https://gitlab.inria.fr/concace/internship/multigrid-expe/-/tree/main).
+Puis exécuter le code Python `optimize.py`
+```
+python optimize.py
+```
 
 
 
