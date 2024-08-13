@@ -182,6 +182,7 @@ class Trainer:
                 # loss_x: torch.Tensor =  norm(residue).mean().to(self.device) # 
                 self.optimizer.step(closure=closure)
                 loss_x = F.mse_loss(y, batch['x'][0, 0, :, :, :, :].double().to(self.device))
+                print("loss_x:", loss_x)
             if 0 < self.evaluate_every and (epoch + 1) % self.evaluate_every == 0:
                 with torch.no_grad():
                     self.model.eval()
