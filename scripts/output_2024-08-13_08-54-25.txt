@@ -1,0 +1,362 @@
+2024-08-13 09:49:39.245 | INFO     | __main__:main:60 - ======================== Args ========================
+2024-08-13 09:49:39.245 | INFO     | __main__:main:62 - structure               unet
+2024-08-13 09:49:39.245 | INFO     | __main__:main:62 - downsampling_policy             lerp
+2024-08-13 09:49:39.245 | INFO     | __main__:main:62 - upsampling_policy               lerp
+2024-08-13 09:49:39.245 | INFO     | __main__:main:62 - num_iterations          16
+2024-08-13 09:49:39.245 | INFO     | __main__:main:62 - relative_tolerance              1e-06
+2024-08-13 09:49:39.245 | INFO     | __main__:main:62 - initialize_x0           random
+2024-08-13 09:49:39.245 | INFO     | __main__:main:62 - num_mg_layers           6
+2024-08-13 09:49:39.245 | INFO     | __main__:main:62 - num_mg_pre_smoothing            2
+2024-08-13 09:49:39.245 | INFO     | __main__:main:62 - num_mg_post_smoothing           2
+2024-08-13 09:49:39.245 | INFO     | __main__:main:62 - activation              none
+2024-08-13 09:49:39.245 | INFO     | __main__:main:62 - initialize_trainable_parameters         default
+2024-08-13 09:49:39.246 | INFO     | __main__:main:62 - optimizer               LBFGS
+2024-08-13 09:49:39.246 | INFO     | __main__:main:62 - scheduler               ['step', '1', '0.99']
+2024-08-13 09:49:39.246 | INFO     | __main__:main:62 - initial_lr              0.05
+2024-08-13 09:49:39.246 | INFO     | __main__:main:62 - lambda_1                1
+2024-08-13 09:49:39.246 | INFO     | __main__:main:62 - lambda_2                1
+2024-08-13 09:49:39.246 | INFO     | __main__:main:62 - start_epoch             0
+2024-08-13 09:49:39.246 | INFO     | __main__:main:62 - max_epoch               1
+2024-08-13 09:49:39.246 | INFO     | __main__:main:62 - save_every              1
+2024-08-13 09:49:39.246 | INFO     | __main__:main:62 - evaluate_every          5
+2024-08-13 09:49:39.246 | INFO     | __main__:main:62 - dataset_root            /home/hadrien/Applications/mg_pytorch/evostencils/scripts/data/
+2024-08-13 09:49:39.246 | INFO     | __main__:main:62 - num_workers             22
+2024-08-13 09:49:39.246 | INFO     | __main__:main:62 - batch_size              1
+2024-08-13 09:49:39.246 | INFO     | __main__:main:62 - device          cuda
+2024-08-13 09:49:39.246 | INFO     | __main__:main:62 - checkpoint_root         /home/hadrien/Applications/mg_pytorch/evostencils/scripts/train/checkpoints
+2024-08-13 09:49:39.246 | INFO     | __main__:main:62 - load_experiment         None
+2024-08-13 09:49:39.246 | INFO     | __main__:main:62 - load_epoch              None
+2024-08-13 09:49:39.247 | INFO     | __main__:main:62 - seed            3990597991
+2024-08-13 09:49:39.247 | INFO     | __main__:main:62 - deterministic           False
+2024-08-13 09:49:39.247 | INFO     | __main__:main:63 - ======================================================
+
+2024-08-13 09:49:39.247 | INFO     | __main__:main:67 - [Train] Using device cuda
+2024-08-13 09:49:39.247 | INFO     | __main__:main:76 - [Train] Do not enforce deterministic algorithms, cudnn benchmark enabled
+2024-08-13 09:49:39.247 | INFO     | __main__:main:81 - [Train] Manual seed PyTorch with seed 3990597991
+
+Parameter containing:
+tensor([[1., 1., 1., 1., 1., 1., 1., 1., 1., 1.],
+        [1., 1., 1., 1., 1., 1., 1., 1., 1., 1.],
+        [1., 1., 1., 1., 1., 1., 1., 1., 1., 1.],
+        [1., 1., 1., 1., 1., 1., 1., 1., 1., 1.],
+        [1., 1., 1., 1., 1., 1., 1., 1., 1., 1.],
+        [1., 1., 1., 1., 1., 1., 1., 1., 1., 1.],
+        [1., 1., 1., 1., 1., 1., 1., 1., 1., 1.],
+        [1., 1., 1., 1., 1., 1., 1., 1., 1., 1.],
+        [1., 1., 1., 1., 1., 1., 1., 1., 1., 1.]], dtype=torch.float64,
+       requires_grad=True)
+2024-08-13 09:49:39.595 | INFO     | evostencils.code_generation.trainer:__init__:138 - [Trainer] 10 training data loaded from /home/hadrien/Applications/mg_pytorch/evostencils/scripts/data/train
+2024-08-13 09:49:39.595 | INFO     | evostencils.code_generation.trainer:__init__:148 - [Trainer] 0 evaluation data loaded from /home/hadrien/Applications/mg_pytorch/evostencils/scripts/data/evaluate
+
+loss_x: tensor(3.6751, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0211, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0003, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0034, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0008, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0005, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0018, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0016, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0008, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0011, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+2024-08-13 09:50:05.792 | INFO     | evostencils.code_generation.trainer:train:209 - trainable omega = Parameter containing:
+tensor([[0.4619, 0.4619, 0.4619, 0.4619, 0.4619, 0.4619, 0.4619, 0.4619, 0.4619,
+         0.4619],
+        [1.0113, 1.0113, 1.0113, 1.0113, 1.0113, 1.0113, 1.0113, 1.0113, 1.0113,
+         1.0113],
+        [1.2962, 1.2961, 1.2960, 1.2956, 1.2956, 1.2956, 1.2955, 1.2937, 1.2903,
+         1.2885],
+        [2.0957, 2.0957, 2.0957, 2.0957, 2.0957, 2.0957, 2.0957, 2.0957, 2.0957,
+         2.0957],
+        [2.1611, 2.1611, 2.1611, 2.1611, 2.1611, 2.1611, 2.1611, 2.1611, 2.1611,
+         2.1611],
+        [1.7693, 1.7693, 1.7693, 1.7693, 1.7693, 1.7693, 1.7693, 1.7693, 1.7693,
+         1.7693],
+        [1.5289, 1.5289, 1.5289, 1.5289, 1.5289, 1.5289, 1.5289, 1.5289, 1.5289,
+         1.5289],
+        [1.3299, 1.3299, 1.3299, 1.3299, 1.3299, 1.3299, 1.3299, 1.3299, 1.3299,
+         1.3299],
+        [1.0647, 1.0647, 1.0647, 1.0647, 1.0647, 1.0647, 1.0647, 1.0647, 1.0647,
+         1.0647]], dtype=torch.float64, requires_grad=True), trainable weight = 0, time = 0.013775825500488281, conv_factor = 0.003663536838880235, iterations_used = 1
+loss_x: tensor(0.0007, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0019, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0011, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0016, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0007, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0017, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0020, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(9.2462e-05, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0016, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0009, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+2024-08-13 09:50:31.467 | INFO     | evostencils.code_generation.trainer:train:209 - trainable omega = Parameter containing:
+tensor([[0.7623, 0.7623, 0.7623, 0.7623, 0.7623, 0.7623, 0.7623, 0.7623, 0.7623,
+         0.7623],
+        [1.2575, 1.2575, 1.2575, 1.2575, 1.2575, 1.2575, 1.2575, 1.2575, 1.2575,
+         1.2575],
+        [2.1762, 2.1339, 2.0980, 1.9774, 1.9591, 1.9640, 1.9345, 1.7389, 1.4149,
+         0.7664],
+        [1.4072, 1.4072, 1.4072, 1.4072, 1.4072, 1.4072, 1.4072, 1.4072, 1.4072,
+         1.4072],
+        [2.0789, 2.0789, 2.0789, 2.0789, 2.0789, 2.0789, 2.0789, 2.0789, 2.0789,
+         2.0789],
+        [1.2383, 1.2383, 1.2383, 1.2383, 1.2383, 1.2383, 1.2383, 1.2383, 1.2383,
+         1.2383],
+        [1.9814, 1.9814, 1.9814, 1.9814, 1.9814, 1.9814, 1.9814, 1.9814, 1.9814,
+         1.9814],
+        [1.2669, 1.2669, 1.2669, 1.2669, 1.2669, 1.2669, 1.2669, 1.2669, 1.2669,
+         1.2669],
+        [1.0931, 1.0931, 1.0931, 1.0931, 1.0931, 1.0931, 1.0931, 1.0931, 1.0931,
+         1.0931]], dtype=torch.float64, requires_grad=True), trainable weight = 0, time = 0.013950347900390625, conv_factor = 0.0011555885935632042, iterations_used = 1
+loss_x: tensor(0.0027, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0002, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0025, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0191, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0009, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0005, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0023, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0100, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0064, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0154, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+2024-08-13 09:50:57.270 | INFO     | evostencils.code_generation.trainer:train:209 - trainable omega = Parameter containing:
+tensor([[ 0.6785,  0.6785,  0.6785,  0.6785,  0.6785,  0.6785,  0.6785,  0.6785,
+          0.6785,  0.6785],
+        [ 1.1010,  1.1010,  1.1010,  1.1010,  1.1010,  1.1010,  1.1010,  1.1010,
+          1.1010,  1.1021],
+        [-0.0291,  0.4920,  0.9230,  3.1251,  3.5718,  3.4490,  4.2359,  3.0096,
+          0.7821,  0.8783],
+        [ 1.3479,  1.3479,  1.3479,  1.3479,  1.3479,  1.3479,  1.3479,  1.3479,
+          1.3479,  1.3479],
+        [ 2.8209,  2.8209,  2.8209,  2.8209,  2.8209,  2.8209,  2.8209,  2.8209,
+          2.8209,  2.8209],
+        [ 1.0840,  1.0840,  1.0840,  1.0840,  1.0840,  1.0840,  1.0840,  1.0840,
+          1.0840,  1.0840],
+        [ 2.5615,  2.5615,  2.5615,  2.5615,  2.5615,  2.5615,  2.5615,  2.5615,
+          2.5615,  2.5615],
+        [ 1.3245,  1.3245,  1.3245,  1.3245,  1.3245,  1.3245,  1.3245,  1.3245,
+          1.3245,  1.3245],
+        [ 1.1321,  1.1321,  1.1321,  1.1321,  1.1321,  1.1321,  1.1321,  1.1321,
+          1.1321,  1.1321]], dtype=torch.float64, requires_grad=True), trainable weight = 0, time = 0.01405191421508789, conv_factor = 0.00042539055491452453, iterations_used = 1
+loss_x: tensor(0.0150, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0007, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0008, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0002, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0003, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0001, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0005, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(7.6508e-05, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0002, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0001, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+2024-08-13 09:51:23.245 | INFO     | evostencils.code_generation.trainer:train:209 - trainable omega = Parameter containing:
+tensor([[ 0.5354,  0.5354,  0.5354,  0.5354,  0.5354,  0.5354,  0.5354,  0.5354,
+          0.5353,  0.5356],
+        [ 1.0449,  1.0449,  1.0449,  1.0449,  1.0449,  1.0449,  1.0449,  1.0449,
+          1.0448,  1.0441],
+        [-1.1232,  0.0932, -0.5472,  3.6702,  4.2577,  4.0934,  5.1745,  1.3209,
+          0.5302,  0.6012],
+        [ 0.9157,  0.9157,  0.9157,  0.9157,  0.9157,  0.9157,  0.9157,  0.9157,
+          0.9157,  0.9157],
+        [ 3.0097,  3.0097,  3.0097,  3.0097,  3.0097,  3.0097,  3.0097,  3.0097,
+          3.0097,  3.0097],
+        [ 1.1669,  1.1669,  1.1669,  1.1669,  1.1669,  1.1669,  1.1669,  1.1669,
+          1.1669,  1.1669],
+        [ 2.5550,  2.5550,  2.5550,  2.5550,  2.5550,  2.5550,  2.5550,  2.5550,
+          2.5550,  2.5550],
+        [ 1.4072,  1.4072,  1.4072,  1.4072,  1.4072,  1.4072,  1.4072,  1.4072,
+          1.4072,  1.4072],
+        [ 1.0704,  1.0704,  1.0704,  1.0704,  1.0704,  1.0704,  1.0704,  1.0704,
+          1.0704,  1.0704]], dtype=torch.float64, requires_grad=True), trainable weight = 0, time = 0.015889406204223633, conv_factor = 0.0017229262807378287, iterations_used = 1
+loss_x: tensor(0.0003, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0001, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0002, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0005, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0001, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0003, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0002, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0007, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0007, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0005, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+2024-08-13 09:51:48.646 | INFO     | evostencils.code_generation.trainer:train:209 - trainable omega = Parameter containing:
+tensor([[ 0.5639,  0.5638,  0.5638,  0.5639,  0.5638,  0.5638,  0.5638,  0.5645,
+          0.5654,  0.5601],
+        [ 0.9168,  0.9169,  0.9169,  0.9165,  0.9171,  0.9157,  0.9179,  0.9175,
+          0.9194,  1.0120],
+        [-1.5222, -0.1811, -0.8024,  3.1847,  3.6012,  3.4401,  4.6151,  1.2107,
+          0.5052,  0.7945],
+        [ 1.0673,  1.0673,  1.0672,  1.0672,  1.0672,  1.0672,  1.0672,  1.0672,
+          1.0672,  1.0672],
+        [ 2.9961,  2.9961,  2.9961,  2.9961,  2.9961,  2.9961,  2.9961,  2.9961,
+          2.9961,  2.9961],
+        [ 1.6012,  1.6012,  1.6012,  1.6012,  1.6012,  1.6012,  1.6012,  1.6012,
+          1.6012,  1.6011],
+        [ 1.0027,  1.0027,  1.0027,  1.0027,  1.0027,  1.0027,  1.0027,  1.0027,
+          1.0027,  1.0027],
+        [ 2.4549,  2.4549,  2.4549,  2.4549,  2.4549,  2.4549,  2.4549,  2.4549,
+          2.4549,  2.4549],
+        [ 1.0749,  1.0749,  1.0749,  1.0749,  1.0749,  1.0749,  1.0749,  1.0749,
+          1.0749,  1.0749]], dtype=torch.float64, requires_grad=True), trainable weight = 0, time = 0.013572454452514648, conv_factor = 0.0006374839372752533, iterations_used = 1
+loss_x: tensor(0.0003, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0001, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0001, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0001, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0003, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0005, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0008, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(3.9988e-05, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0001, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0002, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+2024-08-13 09:52:14.116 | INFO     | evostencils.code_generation.trainer:train:209 - trainable omega = Parameter containing:
+tensor([[ 0.6989,  0.6988,  0.6988,  0.6988,  0.6988,  0.6986,  0.6987,  0.7003,
+          0.7024,  0.6906],
+        [ 0.6989,  0.6991,  0.6990,  0.6985,  0.6993,  0.6977,  0.7002,  0.6998,
+          0.7019,  0.7921],
+        [-2.5940,  0.0197, -0.2633,  2.7044,  2.9758,  2.8605,  3.9145,  1.2118,
+          0.4531,  0.7738],
+        [ 1.0385,  1.0386,  1.0390,  1.0390,  1.0390,  1.0390,  1.0390,  1.0390,
+          1.0390,  1.0390],
+        [ 3.1344,  3.1344,  3.1344,  3.1344,  3.1344,  3.1344,  3.1344,  3.1344,
+          3.1344,  3.1344],
+        [ 1.5934,  1.5934,  1.5934,  1.5934,  1.5934,  1.5934,  1.5933,  1.5934,
+          1.5933,  1.5932],
+        [ 0.9831,  0.9830,  0.9830,  0.9830,  0.9830,  0.9830,  0.9830,  0.9830,
+          0.9830,  0.9830],
+        [ 2.5546,  2.5546,  2.5546,  2.5546,  2.5546,  2.5546,  2.5546,  2.5546,
+          2.5546,  2.5546],
+        [ 1.0814,  1.0814,  1.0814,  1.0814,  1.0814,  1.0814,  1.0814,  1.0814,
+          1.0814,  1.0814]], dtype=torch.float64, requires_grad=True), trainable weight = 0, time = 0.013969659805297852, conv_factor = 0.000682809612123296, iterations_used = 1
+loss_x: tensor(0.0001, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0001, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0027, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(9.5065e-05, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0003, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0004, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0008, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0007, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0001, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(8.8025e-05, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+2024-08-13 09:52:39.559 | INFO     | evostencils.code_generation.trainer:train:209 - trainable omega = Parameter containing:
+tensor([[ 0.6285,  0.6285,  0.6285,  0.6285,  0.6285,  0.6285,  0.6285,  0.6289,
+          0.6292,  0.6251],
+        [ 1.0352,  1.0356,  1.0355,  1.0339,  1.0363,  1.0311,  1.0391,  1.0378,
+          1.0448,  1.4759],
+        [-3.5791,  0.1674, -1.6998,  3.5995,  4.0502,  3.8682,  5.2988,  1.2687,
+          0.5549,  0.9197],
+        [ 1.0849,  1.0848,  1.0844,  1.0844,  1.0844,  1.0844,  1.0844,  1.0844,
+          1.0844,  1.0844],
+        [ 2.3025,  2.3025,  2.3025,  2.3025,  2.3025,  2.3025,  2.3025,  2.3025,
+          2.3025,  2.3025],
+        [ 1.6352,  1.6352,  1.6352,  1.6351,  1.6352,  1.6352,  1.6351,  1.6352,
+          1.6350,  1.6347],
+        [ 1.0102,  1.0102,  1.0102,  1.0102,  1.0102,  1.0102,  1.0101,  1.0102,
+          1.0102,  1.0102],
+        [ 2.2519,  2.2519,  2.2519,  2.2519,  2.2519,  2.2519,  2.2519,  2.2519,
+          2.2519,  2.2519],
+        [ 1.1635,  1.1635,  1.1635,  1.1635,  1.1635,  1.1635,  1.1635,  1.1635,
+          1.1635,  1.1635]], dtype=torch.float64, requires_grad=True), trainable weight = 0, time = 0.013913631439208984, conv_factor = 0.0015612716758731707, iterations_used = 1
+loss_x: tensor(0.0002, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(5.6213e-05, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(8.8225e-05, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0007, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0037, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0005, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(8.9654e-05, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0014, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0003, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+loss_x: tensor(0.0003, device='cuda:0', dtype=torch.float64,
+       grad_fn=<MseLossBackward0>)
+2024-08-13 09:53:04.804 | INFO     | evostencils.code_generation.trainer:train:209 - trainable omega = Parameter containing:
+tensor([[ 0.7493,  0.7494,  0.7494,  0.7494,  0.7495,  0.7496,  0.7496,  0.7473,
+          0.7444,  0.7599],
+        [ 0.8991,  0.8996,  0.8994,  0.8974,  0.9006,  0.8939,  0.9042,  0.9025,
+          0.9117,  1.4939],
+        [-5.2744,  0.1401, -0.4070,  3.1488,  3.4750,  3.3444,  4.5322,  1.4319,
+          0.7058,  0.8594],
+        [ 1.1000,  1.1003,  1.1013,  1.1013,  1.1013,  1.1013,  1.1013,  1.1013,
+          1.1013,  1.1013],
+        [ 2.4465,  2.4465,  2.4465,  2.4465,  2.4465,  2.4465,  2.4465,  2.4465,
+          2.4465,  2.4465],
+        [ 1.4713,  1.4713,  1.4712,  1.4712,  1.4712,  1.4713,  1.4710,  1.4712,
+          1.4710,  1.4705],
+        [ 1.3455,  1.3455,  1.3455,  1.3455,  1.3455,  1.3455,  1.3455,  1.3455,
+          1.3455,  1.3455],
+        [ 1.7413,  1.7413,  1.7413,  1.7413,  1.7413,  1.7413,  1.7413,  1.7413,
+          1.7413,  1.7413],
+        [ 1.1818,  1.1818,  1.1818,  1.1818,  1.1818,  1.1818,  1.1818,  1.1818,
+          1.1818,  1.1818]], dtype=torch.float64, requires_grad=True), trainable weight = 0, time = 0.013722658157348633, conv_factor = 0.0005808488381674499, iterations_used = 1
