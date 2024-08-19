@@ -52,12 +52,12 @@ class Solver(nn.Module):
         h = 1 / np.shape(u)[-1]
         fixed_stencil = (1 / h**2) * self.fixed_stencil
         fixed_central_coeff = fixed_stencil[0, 0, 1, 1]
-        u_conv_fixed = F.conv2d(u, fixed_stencil, padding=0)
+        u_conv_fixed = conv2d_polar(u)
         u_conv_fixed = F.pad(u_conv_fixed, (1, 1, 1, 1), "constant", 0)
         if self.trainable:
             trainable_stencil = (1 / h**2) * self.trainable_stencil
             trainable_central_coeff = trainable_stencil[0, 0, 1, 1]
-            u_conv_trainable = F.conv2d(u, trainable_stencil, padding=0)
+            u_conv_trainable = conv2d_polar(u)
             u_conv_trainable = F.pad(u_conv_trainable, (1, 1, 1, 1), "constant", 0)
             u = u + ( 1 - self.trainable_weight) * omega * (f - u_conv_fixed) / fixed_central_coeff + self.trainable_weight * omega * (f - u_conv_trainable) / trainable_central_coeff
         else:
@@ -69,7 +69,7 @@ class Solver(nn.Module):
         fixed_stencil = (1 / h**2) * self.fixed_stencil
         fixed_central_coeff = fixed_stencil[0, 0, 1, 1]
         for i in range(10):
-            u_conv_fixed = F.conv2d(u, fixed_stencil, padding=0)
+            u_conv_fixed = conv2d_polar(u)
             u_conv_fixed = F.pad(u_conv_fixed, (1, 1, 1, 1), "constant", 0)
             u = u + ((f - u_conv_fixed) / fixed_central_coeff).mul(self.trainable_omega[self.n_operations, i])
         return u
@@ -107,7 +107,7 @@ class Solver(nn.Module):
                     udictionary[levels] = self.chebyshev_smoother(udictionary[levels], fdictionary[levels])
                 elif self.smoother[i] == 3:
                     udictionary[levels] = self.cgs(udictionary[levels], fdictionary[levels])
-                conv_holder = F.conv2d(udictionary[levels].clone(), (1 / (1 / np.shape(udictionary[levels].clone())[-1])**2) * self.fixed_stencil.clone(), padding=0)
+                conv_holder = conv2d_polar(udictionary[levels].clone())
                 conv_holder = F.pad(conv_holder, (1, 1, 1, 1), "constant", 0)
                 residual = fdictionary[levels] - conv_holder
                 fdictionary[levels + 1] = self.restrict(residual)
@@ -137,7 +137,7 @@ class Solver(nn.Module):
     def solve_poisson(self, tol):
         start_time = time.time()
         u = torch.zeros_like(self.f).to(self.device)
-        conv_holder = F.conv2d(u, (1 / (1 / np.shape(u)[-1])**2) * self.fixed_stencil, padding=0)
+        conv_holder = conv2d_polar(u)
         conv_holder = F.pad(conv_holder, (1, 1, 1, 1), "constant", 0)
         res = torch.sum(torch.abs(self.f - conv_holder))/torch.sum(torch.abs(self.f)) 
         prevres = res
@@ -146,7 +146,7 @@ class Solver(nn.Module):
         while res > tol and iter < self.max_iter:
             self.n_operations = 0
             u = self.flex_cycle(u)
-            conv_holder = F.conv2d(u, (1 / (1 / np.shape(u)[-1])**2) * self.fixed_stencil, padding=0)
+            conv_holder = conv2d_polar(u)
             conv_holder = F.pad(conv_holder, (1, 1, 1, 1), "constant", 0)
             res = torch.sum(torch.abs(self.f - conv_holder))/torch.sum(torch.abs(self.f)) 
             resratio = res / prevres
