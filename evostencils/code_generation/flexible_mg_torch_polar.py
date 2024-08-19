@@ -15,9 +15,6 @@ class Solver(nn.Module):
                  trainable_omega = nn.Parameter(torch.rand(1, 1, 1, 10, dtype=torch.double),  requires_grad=True)):
         super(Solver, self).__init__()
         self.device = device if device is not None else torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.fixed_stencil = torch.tensor([[0.0, 1.0, 0.0],
-                                           [1.0, -4.0, 1.0],
-                                           [0.0, 1.0, 0.0]], dtype=torch.float64).to(self.device).unsqueeze(0).unsqueeze(0)
         self.trainable = trainable
         if self.trainable:
             self.trainable_stencil = self.fixed_stencil # nn.Parameter(trainable_stencil.to(self.device))
@@ -52,8 +49,6 @@ class Solver(nn.Module):
     
     def weighted_jacobi_smoother(self, u, f, omega):
         h = 1 / np.shape(u)[-1]
-        fixed_stencil = (1 / h**2) * self.fixed_stencil
-        fixed_central_coeff = fixed_stencil[0, 0, 1, 1]
         u_conv_fixed = self.conv2d_polar(u)
         u_conv_fixed = F.pad(u_conv_fixed, (1, 1, 1, 1), "constant", 0)
         if self.trainable:
@@ -63,7 +58,13 @@ class Solver(nn.Module):
             u_conv_trainable = F.pad(u_conv_trainable, (1, 1, 1, 1), "constant", 0)
             u = u + ( 1 - self.trainable_weight) * omega * (f - u_conv_fixed) / fixed_central_coeff + self.trainable_weight * omega * (f - u_conv_trainable) / trainable_central_coeff
         else:
-            u = u + omega * (f - u_conv_fixed) / fixed_central_coeff
+            delta_r = 1 / u.size(2)
+            delta_theta = 2 * np.pi / u.size(3)
+            for i in range(1, u.size(2)):
+                r = i * delta_r
+                for j in range(u.size(3)):
+                    u[:, :, i, j] = u[:, :, i, j] + omega * (f[:, :, i, j] - u_conv_fixed[:, :, i, j]) / ( -2/delta_r**2-2/((r**2)*(delta_theta**2)) )
+            # u = u + omega * (f - u_conv_fixed) / fixed_central_coeff
         return u
 
     def chebyshev_smoother(self, u, f):
