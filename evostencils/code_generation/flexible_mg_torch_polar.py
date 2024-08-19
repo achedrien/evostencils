@@ -36,28 +36,30 @@ class Solver(nn.Module):
         u, res, self.run_time, self.convergence_factor, self.n_iterations = self.solve_poisson(1e-3)
 
     def conv2d_polar(self, input):
-        output = torch.zeros(1, 1, input.size(2)-1, input.size(3)-1, device=self.device)
+        output = torch.zeros(1, 1, input.size(2)-2, input.size(3)-2, device=self.device)
         delta_r = 1 / input.size(2)
         delta_theta = 2 * np.pi / input.size(3)
-        for i in range(input.size(2)-1):
+        for i in range(1, input.size(2)-2):
             r = i * delta_r
-            for j in range(input.size(3)-1):
+            for j in range(input.size(3)-2):
                 kernel = torch.tensor([[0.0, 1/delta_r**2-1/(r*2*delta_r), 0.0],
-                                       [1/((r**2)*(delta_theta**2)), -2/delta_r**2-2/((r**2)*(delta_theta**2)) 1/((r**2)*(delta_theta**2))],
-                                       [0.0, 1/delta_r**2-1/(r*2*delta_r), 0.0]], dtype=torch.float64).to(self.device).unsqueeze(0).unsqueeze(0)
+                                       [1/((r**2)*(delta_theta**2)), -2/delta_r**2-2/((r**2)*(delta_theta**2)), 1/((r**2)*(delta_theta**2))],
+                                       [0.0, 1/delta_r**2-1/(r*2*delta_r), 0.0]], dtype=torch.float64).to(self.device) #.unsqueeze(0).unsqueeze(0)
                 output[:, :, i, j] = input[:, :, i:i+3, j:j+3].mul(kernel).sum()
+        # output[:, :, 0, :] = 0
+        # print(output.size())
         return output
     
     def weighted_jacobi_smoother(self, u, f, omega):
         h = 1 / np.shape(u)[-1]
         fixed_stencil = (1 / h**2) * self.fixed_stencil
         fixed_central_coeff = fixed_stencil[0, 0, 1, 1]
-        u_conv_fixed = conv2d_polar(u)
+        u_conv_fixed = self.conv2d_polar(u)
         u_conv_fixed = F.pad(u_conv_fixed, (1, 1, 1, 1), "constant", 0)
         if self.trainable:
             trainable_stencil = (1 / h**2) * self.trainable_stencil
             trainable_central_coeff = trainable_stencil[0, 0, 1, 1]
-            u_conv_trainable = conv2d_polar(u)
+            u_conv_trainable = self.conv2d_polar(u)
             u_conv_trainable = F.pad(u_conv_trainable, (1, 1, 1, 1), "constant", 0)
             u = u + ( 1 - self.trainable_weight) * omega * (f - u_conv_fixed) / fixed_central_coeff + self.trainable_weight * omega * (f - u_conv_trainable) / trainable_central_coeff
         else:
@@ -69,7 +71,7 @@ class Solver(nn.Module):
         fixed_stencil = (1 / h**2) * self.fixed_stencil
         fixed_central_coeff = fixed_stencil[0, 0, 1, 1]
         for i in range(10):
-            u_conv_fixed = conv2d_polar(u)
+            u_conv_fixed = self.conv2d_polar(u)
             u_conv_fixed = F.pad(u_conv_fixed, (1, 1, 1, 1), "constant", 0)
             u = u + ((f - u_conv_fixed) / fixed_central_coeff).mul(self.trainable_omega[self.n_operations, i])
         return u
@@ -107,7 +109,7 @@ class Solver(nn.Module):
                     udictionary[levels] = self.chebyshev_smoother(udictionary[levels], fdictionary[levels])
                 elif self.smoother[i] == 3:
                     udictionary[levels] = self.cgs(udictionary[levels], fdictionary[levels])
-                conv_holder = conv2d_polar(udictionary[levels].clone())
+                conv_holder = self.conv2d_polar(udictionary[levels].clone())
                 conv_holder = F.pad(conv_holder, (1, 1, 1, 1), "constant", 0)
                 residual = fdictionary[levels] - conv_holder
                 fdictionary[levels + 1] = self.restrict(residual)
@@ -137,7 +139,7 @@ class Solver(nn.Module):
     def solve_poisson(self, tol):
         start_time = time.time()
         u = torch.zeros_like(self.f).to(self.device)
-        conv_holder = conv2d_polar(u)
+        conv_holder = self.conv2d_polar(u)
         conv_holder = F.pad(conv_holder, (1, 1, 1, 1), "constant", 0)
         res = torch.sum(torch.abs(self.f - conv_holder))/torch.sum(torch.abs(self.f)) 
         prevres = res
@@ -146,16 +148,16 @@ class Solver(nn.Module):
         while res > tol and iter < self.max_iter:
             self.n_operations = 0
             u = self.flex_cycle(u)
-            conv_holder = conv2d_polar(u)
+            conv_holder = self.conv2d_polar(u)
             conv_holder = F.pad(conv_holder, (1, 1, 1, 1), "constant", 0)
             res = torch.sum(torch.abs(self.f - conv_holder))/torch.sum(torch.abs(self.f)) 
             resratio = res / prevres
             convfactorlist.append(resratio)
             prevres = res
-            # print(f'Iteration: {iter}; Residual: {res}; Conv Factor: {resratio}')
+            print(f'Iteration: {iter}; Residual: {res}; Conv Factor: {resratio}')
             iter += 1
         end_time = time.time()
-        # print(f'solve time: {end_time - start_time}, convergence factor: {torch.mean(torch.stack(convfactorlist))}') 
+        print(f'solve time: {end_time - start_time}, convergence factor: {torch.mean(torch.stack(convfactorlist))}') 
         return u, res, end_time - start_time, torch.mean(torch.stack(convfactorlist)).item(), iter
 
     def forward(self, f, tol, optimizer):
