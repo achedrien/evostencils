@@ -139,10 +139,10 @@ class Solver(nn.Module):
             resratio = res / prevres
             convfactorlist.append(resratio)
             prevres = res
-            # print(f'Iteration: {iter}; Residual: {res}; Conv Factor: {resratio}')
+            print(f'Iteration: {iter}; Residual: {res}; Conv Factor: {resratio}')
             iter += 1
         end_time = time.time()
-        # print(f'solve time: {end_time - start_time}, convergence factor: {torch.mean(torch.stack(convfactorlist))}') 
+        print(f'solve time: {end_time - start_time}, convergence factor: {torch.mean(torch.stack(convfactorlist))}') 
         return u, res, end_time - start_time, torch.mean(torch.stack(convfactorlist)).item(), iter
 
     def forward(self, f, tol, optimizer):

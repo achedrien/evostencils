@@ -33,7 +33,7 @@ class Solver(nn.Module):
         u, res, self.run_time, self.convergence_factor, self.n_iterations = self.solve_poisson(1e-3)
 
     def conv2d_polar(self, input):
-        output = torch.zeros(1, 1, input.size(2)-2, input.size(3)-2, device=self.device)
+        output = input[:, :, 1:-1, 1:-1].clone()
         delta_r = 1 / input.size(2)
         delta_theta = 2 * np.pi / input.size(3)
         for i in range(1, input.size(2)-2):
@@ -50,21 +50,14 @@ class Solver(nn.Module):
     def weighted_jacobi_smoother(self, u, f, omega):
         h = 1 / np.shape(u)[-1]
         u_conv_fixed = self.conv2d_polar(u)
-        u_conv_fixed = F.pad(u_conv_fixed, (1, 1, 1, 1), "constant", 0)
-        if self.trainable:
-            trainable_stencil = (1 / h**2) * self.trainable_stencil
-            trainable_central_coeff = trainable_stencil[0, 0, 1, 1]
-            u_conv_trainable = self.conv2d_polar(u)
-            u_conv_trainable = F.pad(u_conv_trainable, (1, 1, 1, 1), "constant", 0)
-            u = u + ( 1 - self.trainable_weight) * omega * (f - u_conv_fixed) / fixed_central_coeff + self.trainable_weight * omega * (f - u_conv_trainable) / trainable_central_coeff
-        else:
-            delta_r = 1 / u.size(2)
-            delta_theta = 2 * np.pi / u.size(3)
-            for i in range(1, u.size(2)):
-                r = i * delta_r
-                for j in range(u.size(3)):
-                    u[:, :, i, j] = u[:, :, i, j] + omega * (f[:, :, i, j] - u_conv_fixed[:, :, i, j]) / ( -2/delta_r**2-2/((r**2)*(delta_theta**2)) )
-            # u = u + omega * (f - u_conv_fixed) / fixed_central_coeff
+        u_conv_fixed = F.pad(u_conv_fixed, (1, 1, 1, 1), "replicate")
+        delta_r = 1 / u.size(2)
+        delta_theta = 2 * np.pi / u.size(3)
+        for i in range(1, u.size(2)):
+            r = i * delta_r
+            for j in range(u.size(3)):
+                u[:, :, i, j] = u[:, :, i, j] + omega * (f[:, :, i, j] - u_conv_fixed[:, :, i, j]) / ( -2/delta_r**2-2/((r**2)*(delta_theta**2)) )
+        # u = u + omega * (f - u_conv_fixed) / fixed_central_coeff
         return u
 
     def chebyshev_smoother(self, u, f):
@@ -73,7 +66,7 @@ class Solver(nn.Module):
         fixed_central_coeff = fixed_stencil[0, 0, 1, 1]
         for i in range(10):
             u_conv_fixed = self.conv2d_polar(u)
-            u_conv_fixed = F.pad(u_conv_fixed, (1, 1, 1, 1), "constant", 0)
+            u_conv_fixed = F.pad(u_conv_fixed, (1, 1, 1, 1), "replicate")
             u = u + ((f - u_conv_fixed) / fixed_central_coeff).mul(self.trainable_omega[self.n_operations, i])
         return u
     
@@ -111,7 +104,7 @@ class Solver(nn.Module):
                 elif self.smoother[i] == 3:
                     udictionary[levels] = self.cgs(udictionary[levels], fdictionary[levels])
                 conv_holder = self.conv2d_polar(udictionary[levels].clone())
-                conv_holder = F.pad(conv_holder, (1, 1, 1, 1), "constant", 0)
+                conv_holder = F.pad(conv_holder, (1, 1, 1, 1), "replicate")
                 residual = fdictionary[levels] - conv_holder
                 fdictionary[levels + 1] = self.restrict(residual)
                 udictionary[levels + 1] = torch.zeros_like(fdictionary[levels + 1])
@@ -141,7 +134,7 @@ class Solver(nn.Module):
         start_time = time.time()
         u = torch.zeros_like(self.f).to(self.device)
         conv_holder = self.conv2d_polar(u)
-        conv_holder = F.pad(conv_holder, (1, 1, 1, 1), "constant", 0)
+        conv_holder = F.pad(conv_holder, (1, 1, 1, 1), "replicate")
         res = torch.sum(torch.abs(self.f - conv_holder))/torch.sum(torch.abs(self.f)) 
         prevres = res
         iter = 0
@@ -150,7 +143,10 @@ class Solver(nn.Module):
             self.n_operations = 0
             u = self.flex_cycle(u)
             conv_holder = self.conv2d_polar(u)
-            conv_holder = F.pad(conv_holder, (1, 1, 1, 1), "constant", 0)
+            conv_holder = F.pad(conv_holder, (1, 1, 1, 1), "replicate")
+            diff = self.f - conv_holder
+            max_value, max_index = torch.max(diff.view(-1), 0)
+            print(f'Max value: {max_value.item()}, Max index:{max_index.detach().cpu().numpy()}')
             res = torch.sum(torch.abs(self.f - conv_holder))/torch.sum(torch.abs(self.f)) 
             resratio = res / prevres
             convfactorlist.append(resratio)
