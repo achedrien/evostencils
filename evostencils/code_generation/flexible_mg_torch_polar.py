@@ -35,6 +35,19 @@ class Solver(nn.Module):
         self.f = physical_rhs.to(self.device)
         u, res, self.run_time, self.convergence_factor, self.n_iterations = self.solve_poisson(1e-3)
 
+    def conv2d_polar(self, in_channels, out_channels, kernel):
+        output = torch.zeros(input.size(0), out_channels, in_channels.size(2), in_channels.size(3), device=self.device)
+        delta_r = 1 / in_channels.size(2)
+        delta_theta = 2 * np.pi / in_channels.size(3)
+        for i in range(in_channels.size(2)):
+            r = i * delta_r
+            for j in range(in_channels.size(3)):
+                kernel = torch.tensor([[0.0, 1/delta_r**2-1/(r*2*delta_r), 0.0],
+                                       [1/((r**2)*(delta_theta**2)), -2/delta_r**2-2/((r**2)*(delta_theta**2)) 1/((r**2)*(delta_theta**2))],
+                                       [0.0, 1/delta_r**2-1/(r*2*delta_r), 0.0]], dtype=torch.float64).to(self.device).unsqueeze(0).unsqueeze(0)
+                output[:, :, i, j] = F.conv2d(input, kernel, self.bias, padding=self.kernel_size//2)
+        return output
+    
     def weighted_jacobi_smoother(self, u, f, omega):
         h = 1 / np.shape(u)[-1]
         fixed_stencil = (1 / h**2) * self.fixed_stencil

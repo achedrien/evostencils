@@ -116,7 +116,7 @@ class Trainer:
         elif optimizer == 'LBFGS':
             # for param in model.parameters():
                 # print(param, param.size())
-            self.optimizer = torch.optim.LBFGS(self.model.parameters(), lr=self.initial_lr, max_iter=50, max_eval=None, tolerance_grad=1e-15, tolerance_change=1e-15, history_size=101, line_search_fn='strong_wolfe')
+            self.optimizer = torch.optim.LBFGS(self.model.parameters(), lr=self.initial_lr, max_iter=100, max_eval=1000, tolerance_grad=1e-7, tolerance_change=1e-9, history_size=1000000, line_search_fn='strong_wolfe')
         else:
             raise NotImplementedError
 
@@ -173,6 +173,7 @@ class Trainer:
                         # residue = square_residue(y, batch['x'].to(self.device), f, reduction='none')
                         # loss_x = torch.tensor((torch.mean(residue)**0.5)/torch.mean(batch['b']), requires_grad=True).to(self.device)
                         loss_x = F.mse_loss(y, batch['x'][0, 0, :, :, :, :].double().to(self.device)) #torch.tensor(conv_factor, requires_grad=True).to(self.device)
+                        print(loss_x, conv_factor)
                         with torch.autograd.set_detect_anomaly(True):
                             loss_x.backward() #retain_graph=True)
                         # print(loss_x.grad)
@@ -182,7 +183,7 @@ class Trainer:
                 # loss_x: torch.Tensor =  norm(residue).mean().to(self.device) # 
                 self.optimizer.step(closure=closure)
                 loss_x = F.mse_loss(y, batch['x'][0, 0, :, :, :, :].double().to(self.device))
-                print("loss_x:", loss_x)
+                # print("loss_x:", loss_x)
             if 0 < self.evaluate_every and (epoch + 1) % self.evaluate_every == 0:
                 with torch.no_grad():
                     self.model.eval()
