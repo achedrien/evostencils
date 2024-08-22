@@ -5,7 +5,9 @@ import numpy as np
 import time
 from random import randint
 import os
-
+from mpl_toolkits.mplot3d import Axes3D
+import matplotlib.pyplot as plt
+from matplotlib import cm
 class Solver(nn.Module):
     def __init__(self, physical_rhs, intergrid_operators, smoother, weight, trainable=True, device=None,
                  trainable_stencil = nn.Parameter(torch.tensor([[[[0.0, 1.0, 0.0],
@@ -62,6 +64,29 @@ class Solver(nn.Module):
             for j in range(u.size(3)):
                 u[:, :, i, j] = u[:, :, i, j] + omega * (f[:, :, i, j] - u_conv_fixed[:, :, i, j]) / ( -r_p_12/(r*delta_r**2)-r_m_12/(r*delta_r**2)-2/((r**2)*(delta_theta**2)) )
         # u = u + omega * (f - u_conv_fixed) / fixed_central_coeff
+        # Get the values of u
+        u_values = u.cpu().detach().numpy()[0, 0, :, :]
+
+        # Create a meshgrid for the x and y coordinates
+        N = np.shape(u_values)[-1]
+        r, theta = np.linspace(0, 1, N), np.linspace(0, 2*np.pi, N)
+        R, Theta = np.meshgrid(r, theta)
+        X, Y = R*np.cos(Theta), R*np.sin(Theta)
+
+        # Create a 3D plot
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+        surf = ax.plot_surface(X, Y, u_values, cmap=cm.coolwarm,
+                       linewidth=0, antialiased=False)
+
+        # Set labels and title
+        ax.set_xlabel('X')
+        ax.set_ylabel('Y')
+        ax.set_zlabel('u')
+        ax.set_title('Surface Plot of u')
+        fig.colorbar(surf, shrink=0.5, aspect=5)
+        # Show the plot
+        plt.show()
         return u
 
     def chebyshev_smoother(self, u, f):
