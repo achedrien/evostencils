@@ -38,11 +38,13 @@ class Solver(nn.Module):
         delta_theta = 2 * np.pi / input.size(3)
         for i in range(1, input.size(2)-2):
             r = i * delta_r
+            r_p_12 = r + delta_r/2
+            r_m_12 = r - delta_r/2
             for j in range(input.size(3)-2):
-                kernel = torch.tensor([[0.0, 1/delta_r**2-1/(r*2*delta_r), 0.0],
-                                       [1/((r**2)*(delta_theta**2)), -2/delta_r**2-2/((r**2)*(delta_theta**2)), 1/((r**2)*(delta_theta**2))],
-                                       [0.0, 1/delta_r**2-1/(r*2*delta_r), 0.0]], dtype=torch.float64).to(self.device) #.unsqueeze(0).unsqueeze(0)
-                output[:, :, i, j] = input[:, :, i:i+3, j:j+3].mul(kernel).sum()
+                kernel = torch.tensor([[0.0, r_p_12/(r*delta_r**2), 0.0],
+                                       [1/((r**2)*(delta_theta**2)), -r_p_12/(r*delta_r**2)-r_m_12/(r*delta_r**2)-2/((r**2)*(delta_theta**2)), 1/((r**2)*(delta_theta**2))],
+                                       [0.0, r_m_12/(r*delta_r**2), 0.0]], dtype=torch.float64).to(self.device) #.unsqueeze(0).unsqueeze(0)
+                output[:, :, i-1, j] = input[:, :, i-1:i+2, j:j+3].mul(kernel).sum()
         # output[:, :, 0, :] = 0
         # print(output.size())
         return output
@@ -55,8 +57,10 @@ class Solver(nn.Module):
         delta_theta = 2 * np.pi / u.size(3)
         for i in range(1, u.size(2)):
             r = i * delta_r
+            r_p_12 = r + delta_r/2
+            r_m_12 = r - delta_r/2
             for j in range(u.size(3)):
-                u[:, :, i, j] = u[:, :, i, j] + omega * (f[:, :, i, j] - u_conv_fixed[:, :, i, j]) / ( -2/delta_r**2-2/((r**2)*(delta_theta**2)) )
+                u[:, :, i, j] = u[:, :, i, j] + omega * (f[:, :, i, j] - u_conv_fixed[:, :, i, j]) / ( -r_p_12/(r*delta_r**2)-r_m_12/(r*delta_r**2)-2/((r**2)*(delta_theta**2)) )
         # u = u + omega * (f - u_conv_fixed) / fixed_central_coeff
         return u
 
