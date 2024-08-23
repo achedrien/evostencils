@@ -1,15 +1,15 @@
+from random import randint
+import os
 import torch
-import torch.nn as nn
+from torch import nn
 import torch.nn.functional as F
 import numpy as np
 import time
-from random import randint
-import os
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 from matplotlib import cm
 class Solver(nn.Module):
-    def __init__(self, physical_rhs, intergrid_operators, smoother, weight, trainable=True, device=None,
+    def __init__(self, physical_rhs, bc, intergrid_operators, smoother, weight, trainable=True, device=None,
                  trainable_stencil = nn.Parameter(torch.tensor([[[[0.0, 1.0, 0.0],
                                                                 [1.0, -4.0, 1.0],
                                                                 [0.0, 1.0, 0.0]]]], dtype=torch.float64)),
@@ -32,6 +32,8 @@ class Solver(nn.Module):
         self.weight = weight
         self.max_iter = 100
         self.f = physical_rhs.to(self.device)
+        self.bc = bc.to(self.device)
+        print(self.bc)
         u, res, self.run_time, self.convergence_factor, self.n_iterations = self.solve_poisson(1e-3)
 
     def conv2d_polar(self, input):
@@ -68,10 +70,10 @@ class Solver(nn.Module):
         r, theta = np.linspace(0, 1, u.size(-1)), np.linspace(0, 2*np.pi, u.size(-1))
         u = u.clone().to(self.device)
         if self.levels == 0:
-            u[:, :, 0, :] = torch.from_numpy(r**3).to(self.device)
-            u[:, :, -1, :] = torch.from_numpy(r**3).to(self.device)
-            u[:, :, :, 0] = 0
-            u[:, :, :, -1] = torch.from_numpy(np.cos(theta)).to(self.device)
+            u[:, :, 0, :] = self.bc[0, :] #torch.from_numpy(r**3).to(self.device)
+            u[:, :, -1, :] = self.bc[1, :] #torch.from_numpy(r**3).to(self.device)
+            u[:, :, :, 0] = self.bc[2, :] #0
+            u[:, :, :, -1] = self.bc[3, :] #torch.from_numpy(np.cos(theta)).to(self.device)
         else:
             u[:, :, 0, :] = 0
             u[:, :, -1, :] = 0
@@ -87,17 +89,17 @@ class Solver(nn.Module):
     def restrict(self, u):
         u = F.interpolate(u, scale_factor=0.5, mode='bilinear', align_corners=True)
         r, theta = np.linspace(0, 1, u.size(-1)), np.linspace(0, 2*np.pi, u.size(-1))
-        u = u.clone().to(self.device)
-        if self.levels == 0:
-            u[:, :, 0, :] = torch.from_numpy(r**3).to(self.device)
-            u[:, :, -1, :] = torch.from_numpy(r**3).to(self.device)
-            u[:, :, :, 0] = 0
-            u[:, :, :, -1] = torch.from_numpy(np.cos(theta)).to(self.device)
-        else:
-            u[:, :, 0, :] = 0
-            u[:, :, -1, :] = 0
-            u[:, :, :, -1] = 0
-            u[:, :, :, 0] = 0
+        # u = u.clone().to(self.device)
+        # if self.levels == 0:
+        #     u[:, :, 0, :] = self.bc[0, :] #torch.from_numpy(r**3).to(self.device)
+        #     u[:, :, -1, :] = self.bc[1, :] #torch.from_numpy(r**3).to(self.device)
+        #     u[:, :, :, 0] = self.bc[2, :] #0
+        #     u[:, :, :, -1] = self.bc[3, :] #torch.from_numpy(np.cos(theta)).to(self.device)
+        # else:
+        #     u[:, :, 0, :] = 0
+        #     u[:, :, -1, :] = 0
+        #     u[:, :, :, -1] = 0
+        #     u[:, :, :, 0] = 0
         return u
 
     def prolongate(self, u):
@@ -105,10 +107,10 @@ class Solver(nn.Module):
         r, theta = np.linspace(0, 1, u.size(-1)), np.linspace(0, 2*np.pi, u.size(-1))
         u = u.clone().to(self.device)
         if self.levels == 0:
-            u[:, :, 0, :] = torch.from_numpy(r**3).to(self.device)
-            u[:, :, -1, :] = torch.from_numpy(r**3).to(self.device)
-            u[:, :, :, 0] = 0
-            u[:, :, :, -1] = torch.from_numpy(np.cos(theta)).to(self.device)
+            u[:, :, 0, :] = self.bc[0, :] #torch.from_numpy(r**3).to(self.device)
+            u[:, :, -1, :] = self.bc[1, :] #torch.from_numpy(r**3).to(self.device)
+            u[:, :, :, 0] = self.bc[2, :] #0
+            u[:, :, :, -1] = self.bc[3, :] #torch.from_numpy(np.cos(theta)).to(self.device)
         else:
             u[:, :, 0, :] = 0
             u[:, :, -1, :] = 0
