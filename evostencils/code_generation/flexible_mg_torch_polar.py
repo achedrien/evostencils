@@ -65,10 +65,18 @@ class Solver(nn.Module):
                 u[:, :, i, j] = u[:, :, i, j] + omega * (f[:, :, i, j] - u_conv_fixed[:, :, i, j]) / ( -r_p_12/(r*delta_r**2)-r_m_12/(r*delta_r**2)-2/((r**2)*(delta_theta**2)) )
         # u = u + omega * (f - u_conv_fixed) / fixed_central_coeff
         # Get the values of u
+        r, theta = np.linspace(0, 1, u.size(-1)), np.linspace(0, 2*np.pi, u.size(-1))
         u = u.clone().to(self.device)
-        u[:, :, 0, :] = 0
-        u[:, :, -1, :] = 0
-        u[:, :, :, -1] = u[:, :, :, 0]
+        if self.levels == 0:
+            u[:, :, 0, :] = torch.from_numpy(r**3).to(self.device)
+            u[:, :, -1, :] = torch.from_numpy(r**3).to(self.device)
+            u[:, :, :, 0] = 0
+            u[:, :, :, -1] = torch.from_numpy(np.cos(theta)).to(self.device)
+        else:
+            u[:, :, 0, :] = 0
+            u[:, :, -1, :] = 0
+            u[:, :, :, -1] = 0
+            u[:, :, :, 0] = 0
         
         # u_values = u.cpu().detach().numpy()[0, 0, :, :]
 
@@ -107,18 +115,34 @@ class Solver(nn.Module):
     
     def restrict(self, u):
         u = F.interpolate(u, scale_factor=0.5, mode='bilinear', align_corners=True)
+        r, theta = np.linspace(0, 1, u.size(-1)), np.linspace(0, 2*np.pi, u.size(-1))
         u = u.clone().to(self.device)
-        u[:, :, 0, :] = 0
-        u[:, :, -1, :] = 0
-        u[:, :, :, -1] = u[:, :, :, 0]
+        if self.levels == 0:
+            u[:, :, 0, :] = torch.from_numpy(r**3).to(self.device)
+            u[:, :, -1, :] = torch.from_numpy(r**3).to(self.device)
+            u[:, :, :, 0] = 0
+            u[:, :, :, -1] = torch.from_numpy(np.cos(theta)).to(self.device)
+        else:
+            u[:, :, 0, :] = 0
+            u[:, :, -1, :] = 0
+            u[:, :, :, -1] = 0
+            u[:, :, :, 0] = 0
         return u
 
     def prolongate(self, u):
         u = F.interpolate(u, scale_factor=2, mode='bilinear', align_corners=True)
+        r, theta = np.linspace(0, 1, u.size(-1)), np.linspace(0, 2*np.pi, u.size(-1))
         u = u.clone().to(self.device)
-        u[:, :, 0, :] = 0
-        u[:, :, -1, :] = 0
-        u[:, :, :, -1] = u[:, :, :, 0]
+        if self.levels == 0:
+            u[:, :, 0, :] = torch.from_numpy(r**3).to(self.device)
+            u[:, :, -1, :] = torch.from_numpy(r**3).to(self.device)
+            u[:, :, :, 0] = 0
+            u[:, :, :, -1] = torch.from_numpy(np.cos(theta)).to(self.device)
+        else:
+            u[:, :, 0, :] = 0
+            u[:, :, -1, :] = 0
+            u[:, :, :, -1] = 0
+            u[:, :, :, 0] = 0
         return u
 
     def cgs(self, u, f):
@@ -133,41 +157,41 @@ class Solver(nn.Module):
         return torch.from_numpy(u_np.reshape(int(np.shape(u_np)[-1]**0.5), int(np.shape(u_np)[-1]**0.5))[np.newaxis, np.newaxis, :, :].astype(np.float64)).to(self.device)
 
     def flex_cycle(self, u):
-        levels=0
+        self.levels=0
         udictionary = {}
         fdictionary = {}
-        udictionary[levels] = u.clone().to(self.device)
-        fdictionary[levels] = self.f.clone().to(self.device)
+        udictionary[self.levels] = u.clone().to(self.device)
+        fdictionary[self.levels] = self.f.clone().to(self.device)
         for i, operator in enumerate(self.intergrid_operators):
             if operator == -1:
                 if self.smoother[i] == 1:
-                    udictionary[levels] = self.weighted_jacobi_smoother(udictionary[levels], fdictionary[levels], self.weight[i])
+                    udictionary[self.levels] = self.weighted_jacobi_smoother(udictionary[self.levels], fdictionary[self.levels], self.weight[i])
                 elif self.smoother[i] == 2:
-                    udictionary[levels] = self.chebyshev_smoother(udictionary[levels], fdictionary[levels])
+                    udictionary[self.levels] = self.chebyshev_smoother(udictionary[self.levels], fdictionary[self.levels])
                 elif self.smoother[i] == 3:
-                    udictionary[levels] = self.cgs(udictionary[levels], fdictionary[levels])
-                conv_holder = self.conv2d_polar(udictionary[levels].clone())
+                    udictionary[self.levels] = self.cgs(udictionary[self.levels], fdictionary[self.levels])
+                conv_holder = self.conv2d_polar(udictionary[self.levels].clone())
                 conv_holder = F.pad(conv_holder, (1, 1, 1, 1), "replicate")
-                residual = fdictionary[levels] - conv_holder
-                fdictionary[levels + 1] = self.restrict(residual)
-                udictionary[levels + 1] = torch.zeros_like(fdictionary[levels + 1])
-                levels += 1
+                residual = fdictionary[self.levels] - conv_holder
+                fdictionary[self.levels + 1] = self.restrict(residual)
+                udictionary[self.levels + 1] = torch.zeros_like(fdictionary[self.levels + 1])
+                self.levels += 1
             elif operator == 1:
-                udictionary[levels - 1] += self.prolongate(udictionary[levels])
-                levels -= 1
+                udictionary[self.levels - 1] += self.prolongate(udictionary[self.levels])
+                self.levels -= 1
                 if self.smoother[i] == 1:
-                    udictionary[levels] = self.weighted_jacobi_smoother(udictionary[levels], fdictionary[levels], self.weight[i])
+                    udictionary[self.levels] = self.weighted_jacobi_smoother(udictionary[self.levels], fdictionary[self.levels], self.weight[i])
                 elif self.smoother[i] == 2:
-                    udictionary[levels] = self.chebyshev_smoother(udictionary[levels], fdictionary[levels])
+                    udictionary[self.levels] = self.chebyshev_smoother(udictionary[self.levels], fdictionary[self.levels])
                 elif self.smoother[i] == 3:
-                    udictionary[levels] = self.cgs(udictionary[levels], fdictionary[levels])
+                    udictionary[self.levels] = self.cgs(udictionary[self.levels], fdictionary[self.levels])
             else:
                 if self.smoother[i] == 1:
-                    udictionary[levels] = self.weighted_jacobi_smoother(udictionary[levels], fdictionary[levels], self.weight[i])
+                    udictionary[self.levels] = self.weighted_jacobi_smoother(udictionary[self.levels], fdictionary[self.levels], self.weight[i])
                 elif self.smoother[i] == 2:
-                    udictionary[levels] = self.chebyshev_smoother(udictionary[levels], fdictionary[levels])
+                    udictionary[self.levels] = self.chebyshev_smoother(udictionary[self.levels], fdictionary[self.levels])
                 elif self.smoother[i] == 3:
-                    udictionary[levels] = self.cgs(udictionary[levels], fdictionary[levels])
+                    udictionary[self.levels] = self.cgs(udictionary[self.levels], fdictionary[self.levels])
             self.n_operations += 1
         result = udictionary[0]
         del(fdictionary, udictionary)
@@ -207,16 +231,22 @@ class Solver(nn.Module):
             ax = fig.add_subplot(111, projection='3d')
             surf = ax.plot_surface(X, Y, u_values, cmap=cm.coolwarm,
                            linewidth=0, antialiased=False)
+            ax.plot_surface(X, Y, (X**3)*np.cos(Y), cmap=cm.coolwarm,
+                           linewidth=0, antialiased=False)
+            # print(((X**3)*np.cos(Y))[0, :])
+            # print(((X**3)*np.cos(Y))[-1, :])
+            # print(((X**3)*np.cos(Y))[:, 0])
+            # print(((X**3)*np.cos(Y))[:, -1])
 
             # Set labels and title
             ax.set_xlabel('X')
             ax.set_ylabel('Y')
             ax.set_zlabel('u')
             ax.set_title('Surface Plot of u')
-            ax.view_init(elev=30, azim=45, roll=15)
+            ax.view_init(elev=30, azim=58, roll=0)
             fig.colorbar(surf, shrink=0.5, aspect=5)
             # Show the plot
-            plt.show()
+        plt.show()
         end_time = time.time()
         print(f'solve time: {end_time - start_time}, convergence factor: {torch.mean(torch.stack(convfactorlist))}') 
         return u, res, end_time - start_time, torch.mean(torch.stack(convfactorlist)).item(), iter
