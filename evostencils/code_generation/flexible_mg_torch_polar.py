@@ -77,40 +77,11 @@ class Solver(nn.Module):
             u[:, :, -1, :] = 0
             u[:, :, :, -1] = 0
             u[:, :, :, 0] = 0
-        
-        # u_values = u.cpu().detach().numpy()[0, 0, :, :]
-
-        # Create a meshgrid for the x and y coordinates
-        # N = np.shape(u_values)[-1]
-        # r, theta = np.linspace(0, 1, N), np.linspace(0, 2*np.pi, N)
-        # R, Theta = np.meshgrid(r, theta)
-        # X, Y = R*np.cos(Theta), R*np.sin(Theta)
-
-        # # Create a 3D plot
-        # fig = plt.figure()
-        # ax = fig.add_subplot(111, projection='3d')
-        # surf = ax.plot_surface(X, Y, u_values, cmap=cm.coolwarm,
-        #                linewidth=0, antialiased=False)
-
-        # # Set labels and title
-        # ax.set_xlabel('X')
-        # ax.set_ylabel('Y')
-        # ax.set_zlabel('u')
-        # ax.set_title('Surface Plot of u')
-        # ax.view_init(elev=30, azim=45, roll=15)
-        # fig.colorbar(surf, shrink=0.5, aspect=5)
-        # # Show the plot
-        # plt.show()
         return u
 
     def chebyshev_smoother(self, u, f):
-        h = 1 / np.shape(u)[-1]
-        fixed_stencil = (1 / h**2) * self.fixed_stencil
-        fixed_central_coeff = fixed_stencil[0, 0, 1, 1]
         for i in range(10):
-            u_conv_fixed = self.conv2d_polar(u)
-            u_conv_fixed = F.pad(u_conv_fixed, (1, 1, 1, 1), "replicate")
-            u = u + ((f - u_conv_fixed) / fixed_central_coeff).mul(self.trainable_omega[self.n_operations, i])
+            u = self.weighted_jacobi_smoother(u, f, self.trainable_omega[self.n_operations, i])
         return u
     
     def restrict(self, u):
@@ -200,6 +171,11 @@ class Solver(nn.Module):
     def solve_poisson(self, tol):
         start_time = time.time()
         u = torch.zeros_like(self.f).to(self.device)
+        r, theta = np.linspace(0, 1, u.size(-1)), np.linspace(0, 2*np.pi, u.size(-1))
+        u[:, :, 0, :] = torch.from_numpy(r**3).to(self.device)
+        u[:, :, -1, :] = torch.from_numpy(r**3).to(self.device)
+        u[:, :, :, 0] = 0
+        u[:, :, :, -1] = torch.from_numpy(np.cos(theta)).to(self.device)
         conv_holder = self.conv2d_polar(u)
         conv_holder = F.pad(conv_holder, (1, 1, 1, 1), "replicate")
         res = torch.sum(torch.abs(self.f - conv_holder))/torch.sum(torch.abs(self.f)) 
@@ -231,7 +207,7 @@ class Solver(nn.Module):
             ax = fig.add_subplot(111, projection='3d')
             surf = ax.plot_surface(X, Y, u_values, cmap=cm.coolwarm,
                            linewidth=0, antialiased=False)
-            ax.plot_surface(X, Y, (X**3)*np.cos(Y), cmap=cm.coolwarm,
+            ax.plot_surface(X, Y, (X**3)*np.cos(Y), cmap=cm.cividis,
                            linewidth=0, antialiased=False)
             # print(((X**3)*np.cos(Y))[0, :])
             # print(((X**3)*np.cos(Y))[-1, :])
@@ -243,10 +219,9 @@ class Solver(nn.Module):
             ax.set_ylabel('Y')
             ax.set_zlabel('u')
             ax.set_title('Surface Plot of u')
-            ax.view_init(elev=30, azim=58, roll=0)
+            ax.view_init(elev=6, azim=100, roll=0)
             fig.colorbar(surf, shrink=0.5, aspect=5)
-            # Show the plot
-        plt.show()
+            fig.savefig(f'under_relaxed_u_plot_{iter}.png')
         end_time = time.time()
         print(f'solve time: {end_time - start_time}, convergence factor: {torch.mean(torch.stack(convfactorlist))}') 
         return u, res, end_time - start_time, torch.mean(torch.stack(convfactorlist)).item(), iter

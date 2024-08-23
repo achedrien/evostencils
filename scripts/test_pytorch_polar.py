@@ -12,7 +12,7 @@ physical_rhs = -7 * R * np.cos(Theta) + 3 * R * np.sin(Theta)
 physical_rhs = torch.from_numpy(physical_rhs[np.newaxis, np.newaxis, :, :].astype(np.float64))
 solver = Solver.Solver(physical_rhs, [-1, -1, -1, -1, 0, 1, 1, 1, 1],
                         [1, 1, 1, 1, 1, 1, 1, 1, 1], 
-                        [1, 1, 1, 1, 1, 1, 1, 1, 1], trainable = False, trainable_omega=1*torch.ones(9, 10, dtype=torch.double).to(device))
+                        [0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9], trainable = False, trainable_omega=1*torch.ones(9, 10, dtype=torch.double).to(device))
 print("########################################")
 print("run time: ", solver.run_time)
 print("Convergence factor: ", solver.convergence_factor)
