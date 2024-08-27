@@ -66,38 +66,6 @@ class Solver(nn.Module):
             for j in range(u.size(3)):
                 u[:, :, i, j] = u[:, :, i, j] + omega * (f[:, :, i, j] - u_conv_fixed[:, :, i, j]) / ( -r_p_12/(r*delta_r**2)-r_m_12/(r*delta_r**2)-2/((r**2)*(delta_theta**2)) )
         # u = u + omega * (f - u_conv_fixed) / fixed_central_coeff
-<<<<<<< HEAD
-        # Get the values of u$
-        u = u.clone().to(self.device)
-        u[:, :, 0, :] = 0
-        u[:, :, -1, :] = 0
-        u[:, :, :, -1] = 0
-        u[:, :, :, 0] = 0
-        
-        # u_values = u.cpu().detach().numpy()[0, 0, :, :]
-
-        # Create a meshgrid for the x and y coordinates
-        # N = np.shape(u_values)[-1]
-        # r, theta = np.linspace(0, 1, N), np.linspace(0, 2*np.pi, N)
-        # R, Theta = np.meshgrid(r, theta)
-        # X, Y = R*np.cos(Theta), R*np.sin(Theta)
-
-        # # Create a 3D plot
-        # fig = plt.figure()
-        # ax = fig.add_subplot(111, projection='3d')
-        # surf = ax.plot_surface(X, Y, u_values, cmap=cm.coolwarm,
-        #                linewidth=0, antialiased=False)
-
-        # # Set labels and title
-        # ax.set_xlabel('X')
-        # ax.set_ylabel('Y')
-        # ax.set_zlabel('u')
-        # ax.set_title('Surface Plot of u')
-        # ax.view_init(elev=30, azim=45, roll=15)
-        # fig.colorbar(surf, shrink=0.5, aspect=5)
-        # # Show the plot
-        # plt.show()
-=======
         # Get the values of u
         r, theta = np.linspace(0, 1, u.size(-1)), np.linspace(0, 2*np.pi, u.size(-1))
         u = u.clone().to(self.device)
@@ -111,7 +79,6 @@ class Solver(nn.Module):
             u[:, :, -1, :] = 0
             u[:, :, :, -1] = 0
             u[:, :, :, 0] = 0
->>>>>>> 3adb162bde358658badd6b3d386a5d4403b8f8af
         return u
 
     def chebyshev_smoother(self, u, f):
@@ -121,13 +88,6 @@ class Solver(nn.Module):
     
     def restrict(self, u):
         u = F.interpolate(u, scale_factor=0.5, mode='bilinear', align_corners=True)
-<<<<<<< HEAD
-        u = u.clone().to(self.device)
-        u[:, :, 0, :] = 0
-        u[:, :, -1, :] = 0
-        u[:, :, :, -1] = 0
-        u[:, :, :, 0] = 0
-=======
         r, theta = np.linspace(0, 1, u.size(-1)), np.linspace(0, 2*np.pi, u.size(-1))
         # u = u.clone().to(self.device)
         # if self.levels == 0:
@@ -140,19 +100,12 @@ class Solver(nn.Module):
         #     u[:, :, -1, :] = 0
         #     u[:, :, :, -1] = 0
         #     u[:, :, :, 0] = 0
->>>>>>> 3adb162bde358658badd6b3d386a5d4403b8f8af
         return u
 
     def prolongate(self, u):
         u = F.interpolate(u, scale_factor=2, mode='bilinear', align_corners=True)
         r, theta = np.linspace(0, 1, u.size(-1)), np.linspace(0, 2*np.pi, u.size(-1))
         u = u.clone().to(self.device)
-<<<<<<< HEAD
-        u[:, :, 0, :] = 0
-        u[:, :, -1, :] = 0
-        u[:, :, :, -1] = 0
-        u[:, :, :, 0] = 0
-=======
         if self.levels == 0:
             u[:, :, 0, :] = self.bc[0, :] #torch.from_numpy(r**3).to(self.device)
             u[:, :, -1, :] = self.bc[1, :] #torch.from_numpy(r**3).to(self.device)
@@ -163,7 +116,6 @@ class Solver(nn.Module):
             u[:, :, -1, :] = 0
             u[:, :, :, -1] = 0
             u[:, :, :, 0] = 0
->>>>>>> 3adb162bde358658badd6b3d386a5d4403b8f8af
         return u
 
     def cgs(self, u, f):
