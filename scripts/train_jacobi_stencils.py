@@ -7,8 +7,8 @@ from loguru import logger
 import torch
 import torch.backends.cudnn
 import torch.nn as nn
-import evostencils.code_generation.flexible_mg_torch as Solver
-import evostencils.code_generation.trainer as Trainer
+import evostencils.code_generation.flexible_mg_torch_jacobi_stencils as Solver
+import evostencils.code_generation.trainer_jacobi_stencils as Trainer
 
 class TrainArg():
     def __init__(self) -> None:
@@ -101,7 +101,7 @@ def main() -> None:
     physical_rhs = (2 ** (4 * a)) * g(a, Y) * g(a - 2, X) * h(a, X)
     physical_rhs = torch.from_numpy(physical_rhs[np.newaxis, np.newaxis, :, :].astype(np.float64))
     solver = Solver.Solver(physical_rhs, [-1, -1, -1, -1, 0, 1, 1, 1, 1],
-                          [2, 2, 2, 2, 2, 2, 2, 2, 2], 
+                          [1, 1, 1, 1, 3, 1, 1, 1, 1], 
                           [1, 1, 1, 1, 1, 1, 1, 1, 1], trainable = True, device=device)
     trainer = Trainer.Trainer(experiment_name, experiment_checkpoint_path, device,
                             solver, logger,

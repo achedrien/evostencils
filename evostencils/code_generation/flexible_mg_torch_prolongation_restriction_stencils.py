@@ -23,7 +23,7 @@ class Solver(nn.Module):
             self.trainable_stencil = self.fixed_stencil # nn.Parameter(trainable_stencil.to(self.device))
             # self.trainable_stencil = nn.Parameter(4*torch.rand_like(self.fixed_stencil, dtype=torch.double, requires_grad=True)).to(self.device)
             self.trainable_weight = 0 # nn.Parameter(trainable_weight.to(self.device)).clamp(0, 1)
-            self.trainable_omega = nn.Parameter(torch.rand(len(intergrid_operators), 10, dtype=torch.double))# , requires_grad=True)).to(self.device)
+            self.trainable_omega = 1 # nn.Parameter(torch.rand(len(intergrid_operators), 10, dtype=torch.double))# , requires_grad=True)).to(self.device)
             print(self.trainable_omega)
         else:
             self.trainable_weight = 1

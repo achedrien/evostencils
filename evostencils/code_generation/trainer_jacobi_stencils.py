@@ -207,7 +207,7 @@ class Trainer:
                             return time, conv_factor, iterations_used, trainable_stencils, trainable_weight, trainable_omega
                     self.model.train()
             if self.verbose > 0:
-                self.logger.info('trainable omega = {trainable_omega}, trainable weight = {trainable_weight}, time = {time}, conv_factor = {conv_factor}, iterations_used = {iterations_used}'.format(trainable_omega=trainable_omega, trainable_weight=trainable_weight, time=time, conv_factor=conv_factor, iterations_used=iterations_used))
+                self.logger.info('trainable stencils = {trainable_stencils}, time = {time}, conv_factor = {conv_factor}, iterations_used = {iterations_used}'.format(trainable_stencils=trainable_stencils, time=time, conv_factor=conv_factor, iterations_used=iterations_used))
             self.scheduler.step()
             if (epoch + 1) % self.save_every == 0 or epoch == self.max_epoch - 1:
                 self.model.save(self.experiment_checkpoint_path, epoch + 1)

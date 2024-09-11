@@ -23,7 +23,7 @@ class Solver(nn.Module):
             self.trainable_stencil = self.fixed_stencil # nn.Parameter(trainable_stencil.to(self.device))
             # self.trainable_stencil = nn.Parameter(4*torch.rand_like(self.fixed_stencil, dtype=torch.double, requires_grad=True)).to(self.device)
             self.trainable_weight = 0 # nn.Parameter(trainable_weight.to(self.device)).clamp(0, 1)
-            self.trainable_omega = nn.Parameter(torch.rand(len(intergrid_operators), 10, dtype=torch.double))# , requires_grad=True)).to(self.device)
+            self.trainable_omega = nn.Parameter(torch.rand(len(intergrid_operators), 4, dtype=torch.double))# , requires_grad=True)).to(self.device)
             print(self.trainable_omega)
         else:
             self.trainable_weight = 1
@@ -55,7 +55,7 @@ class Solver(nn.Module):
         h = 1 / np.shape(u)[-1]
         fixed_stencil = (1 / h**2) * self.fixed_stencil
         fixed_central_coeff = fixed_stencil[0, 0, 1, 1]
-        for i in range(10):
+        for i in range(4):
             u_conv_fixed = F.conv2d(u, fixed_stencil, padding=0)
             u_conv_fixed = F.pad(u_conv_fixed, (1, 1, 1, 1), "constant", 0)
             u = u + ((f - u_conv_fixed) / fixed_central_coeff).mul(self.trainable_omega[self.n_operations, i])
