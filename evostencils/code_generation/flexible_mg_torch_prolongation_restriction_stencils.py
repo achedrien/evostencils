@@ -24,7 +24,11 @@ class Solver(nn.Module):
             # self.trainable_stencil = nn.Parameter(4*torch.rand_like(self.fixed_stencil, dtype=torch.double, requires_grad=True)).to(self.device)
             self.trainable_weight = 0 # nn.Parameter(trainable_weight.to(self.device)).clamp(0, 1)
             self.trainable_omega = 1 # nn.Parameter(torch.rand(len(intergrid_operators), 10, dtype=torch.double))# , requires_grad=True)).to(self.device)
-            print(self.trainable_omega)
+            self.restriction_stencils = nn.Parameter(torch.tensor([[[[0.25, 0.25],
+                                                                      [0.25, 0.25]]]], dtype=torch.float64).to(self.device))
+            self.prolongation_stencils = nn.Parameter(torch.tensor([[[[0.25, 0.5, 0.25],
+                                                                      [0.5, 1, 0.5],
+                                                                      [0.25, 0.5, 0.25]]]], dtype=torch.float64).to(self.device))
         else:
             self.trainable_weight = 1
             self.trainable_omega = trainable_omega
@@ -62,11 +66,16 @@ class Solver(nn.Module):
         return u
     
     def restrict(self, u):
-        u = F.interpolate(u, scale_factor=0.5, mode='bilinear', align_corners=True)
+        # print(u.size())
+        u = F.conv2d(u, self.restriction_stencils, padding=0, stride=(2, 2))
+        # u = F.pad(u, (1, 1, 1, 1), "constant", 0)
+        # print(u.size())
         return u
 
     def prolongate(self, u):
-        u = F.interpolate(u, scale_factor=2, mode='bilinear', align_corners=True)
+        u = F.interpolate(u, scale_factor=2, mode='nearest') # , align_corners=True)
+        u = F.conv2d(u, self.prolongation_stencils, padding=0, stride=1)
+        u = F.pad(u, (1, 1, 1, 1), "constant", 0)
         return u
 
     def cgs(self, u, f):
@@ -156,7 +165,7 @@ class Solver(nn.Module):
         optimizer.zero_grad()
         with torch.enable_grad():
             u, res, time, conv_factor, iter = self.solve_poisson(tol)
-        return u, res, time, conv_factor, iter, self.trainable_stencil, self.trainable_weight, self.trainable_omega
+        return u, res, time, conv_factor, iter, self.prolongation_stencils, self.restriction_stencils
     
     def save(self, checkpoint_path: str, epoch: int):
         save_dir: str = os.path.join(checkpoint_path, 'pth')

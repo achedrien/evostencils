@@ -162,14 +162,14 @@ class Trainer:
                 conv_holder = F.conv2d(u.type(torch.float64), (1 / (1 / np.shape(u)[-1])**2) * fixed_stencil, padding=0)
                 f = F.pad(conv_holder, (1, 1, 1, 1), "constant", 0)
                 tup: typing.Tuple[torch.Tensor, int] = self.model(f, 1e-3, self.optimizer)
-                y, res, time, conv_factor, iterations_used, trainable_stencils, trainable_weight, trainable_omega = tup
+                y, res, time, conv_factor, iterations_used, prolongation_stencils, restriction_stencils = tup
                 residue: torch.Tensor = square_residue(y, f.to(self.device), f.to(self.device), reduction='none')
 
                 def closure():
                     with torch.enable_grad():
                         self.optimizer.zero_grad()
                         tup = self.model(batch['b'], 1e-3, self.optimizer)
-                        y, res, time, conv_factor, iterations_used, trainable_stencils, trainable_weight, trainable_omega = tup
+                        y, res, time, conv_factor, iterations_used, prolongation_stencils, restriction_stencils = tup
                         # residue = square_residue(y, batch['x'].to(self.device), f, reduction='none')
                         # loss_x = torch.tensor((torch.mean(residue)**0.5)/torch.mean(batch['b']), requires_grad=True).to(self.device)
                         loss_x = F.mse_loss(y, batch['x'][0, 0, :, :, :, :].double().to(self.device)) #torch.tensor(conv_factor, requires_grad=True).to(self.device)
@@ -204,11 +204,11 @@ class Trainer:
                         self.epochs_no_improve += 1
                         if self.epochs_no_improve == self.patience:
                             self.max_epoch = epoch
-                            return time, conv_factor, iterations_used, trainable_stencils, trainable_weight, trainable_omega
+                            return time, conv_factor, iterations_used, prolongation_stencils, restriction_stencils
                     self.model.train()
             if self.verbose > 0:
-                self.logger.info('trainable omega = {trainable_omega}, trainable weight = {trainable_weight}, time = {time}, conv_factor = {conv_factor}, iterations_used = {iterations_used}'.format(trainable_omega=trainable_omega, trainable_weight=trainable_weight, time=time, conv_factor=conv_factor, iterations_used=iterations_used))
+                self.logger.info('restriction stencils = {restriction_stencils}, prolongation stencils = {prolongation_stencils}, time = {time}, conv_factor = {conv_factor}, iterations_used = {iterations_used}'.format(restriction_stencils=restriction_stencils, prolongation_stencils=prolongation_stencils, time=time, conv_factor=conv_factor, iterations_used=iterations_used))
             self.scheduler.step()
             if (epoch + 1) % self.save_every == 0 or epoch == self.max_epoch - 1:
                 self.model.save(self.experiment_checkpoint_path, epoch + 1)
-        return time, conv_factor, iterations_used, trainable_stencils, trainable_weight, trainable_omega
+        return time, conv_factor, iterations_used, prolongation_stencils, restriction_stencils
