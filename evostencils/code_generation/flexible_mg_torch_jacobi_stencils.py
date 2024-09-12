@@ -17,10 +17,13 @@ class Solver(nn.Module):
         self.device = device if device is not None else torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.fixed_stencil = torch.tensor([[0.0, 1.0, 0.0],
                                            [1.0, -4.0, 1.0],
-                                           [0.0, 1.0, 0.0]], dtype=torch.float64).to(self.device).unsqueeze(0).unsqueeze(0)
+                                           [0.0, 1.0, 0.0]], dtype=torch.double).to(self.device).unsqueeze(0).unsqueeze(0)
         self.trainable = trainable
         if self.trainable:
-            self.trainable_stencil = nn.Parameter(trainable_stencil.to(self.device))
+            self.trainable_stencil = nn.Parameter(torch.stack([torch.tensor([[0.0, 1.0, 0.0],
+                                           [1.0, -4.0, 1.0],
+                                           [0.0, 1.0, 0.0]], dtype=torch.double, requires_grad=True).unsqueeze(0)] * len(intergrid_operators), dim=1).to(self.device))
+            print(self.trainable_stencil, self.trainable_stencil.size)
             # self.trainable_stencil = nn.Parameter(4*torch.rand_like(self.fixed_stencil, dtype=torch.double, requires_grad=True)).to(self.device)
             self.trainable_weight = 1 # nn.Parameter(trainable_weight.to(self.device)).clamp(0, 1)
             self.trainable_omega = 1 # nn.Parameter(torch.rand(len(intergrid_operators), 10, dtype=torch.double))# , requires_grad=True)).to(self.device)
@@ -42,7 +45,7 @@ class Solver(nn.Module):
         u_conv_fixed = F.conv2d(u, fixed_stencil, padding=0)
         u_conv_fixed = F.pad(u_conv_fixed, (1, 1, 1, 1), "constant", 0)
         if self.trainable:
-            trainable_stencil = (1 / h**2) * self.trainable_stencil
+            trainable_stencil = (1 / h**2) * self.trainable_stencil[0, self.n_operations, :, :].to(self.device).unsqueeze(0).unsqueeze(0)
             trainable_central_coeff = trainable_stencil[0, 0, 1, 1]
             u_conv_trainable = F.conv2d(u, trainable_stencil, padding=0)
             u_conv_trainable = F.pad(u_conv_trainable, (1, 1, 1, 1), "constant", 0)
