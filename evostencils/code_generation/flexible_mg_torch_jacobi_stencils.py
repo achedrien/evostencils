@@ -20,10 +20,22 @@ class Solver(nn.Module):
                                            [0.0, 1.0, 0.0]], dtype=torch.double).to(self.device).unsqueeze(0).unsqueeze(0)
         self.trainable = trainable
         if self.trainable:
-            self.trainable_stencil = nn.Parameter(torch.stack([torch.tensor([[0.0, 1.0, 0.0],
-                                           [1.0, -4.0, 1.0],
-                                           [0.0, 1.0, 0.0]], dtype=torch.double, requires_grad=True).unsqueeze(0)] * len(intergrid_operators), dim=1).to(self.device))
-            print(self.trainable_stencil, self.trainable_stencil.size)
+            self.gamma = nn.Parameter(torch.rand(len(intergrid_operators), dtype=torch.double, requires_grad=True)).to(self.device) # .clamp(0, 1)
+            print(self.gamma)
+            self.rotating_part = torch.tensor([[0.0, 1.0, 0.0],
+                                       [1.0, -4.0, 1.0],
+                                       [0.0, 1.0, 0.0]],
+                                       dtype=torch.double).to(self.device).unsqueeze(0).unsqueeze(0)
+            self.trainable_stencil = self.fixed_stencil # torch.rand(1, len(intergrid_operators), 3, 3, dtype=torch.double)
+            # for i in range(len(intergrid_operators)):
+            #     self.trainable_stencil[0, i, :, :] = (1 - self.gamma[i]) * self.fixed_stencil + \
+            #                                          self.gamma[i] * self.rotating_part
+
+            print(self.trainable_stencil)
+            # self.trainable_stencil = nn.Parameter(torch.stack([torch.tensor([[0.0, 1.0, 0.0],
+            #                                [1.0, -4.0, 1.0],
+            #                                [0.0, 1.0, 0.0]], dtype=torch.double, requires_grad=True).unsqueeze(0)] * len(intergrid_operators), dim=1).to(self.device))
+            # print(self.trainable_stencil, self.trainable_stencil.size)
             # self.trainable_stencil = nn.Parameter(4*torch.rand_like(self.fixed_stencil, dtype=torch.double, requires_grad=True)).to(self.device)
             self.trainable_weight = 1 # nn.Parameter(trainable_weight.to(self.device)).clamp(0, 1)
             self.trainable_omega = 1 # nn.Parameter(torch.rand(len(intergrid_operators), 10, dtype=torch.double))# , requires_grad=True)).to(self.device)
@@ -41,15 +53,17 @@ class Solver(nn.Module):
     def weighted_jacobi_smoother(self, u, f, omega):
         h = 1 / np.shape(u)[-1]
         fixed_stencil = (1 / h**2) * self.fixed_stencil
-        fixed_central_coeff = fixed_stencil[0, 0, 1, 1] + fixed_stencil[0, 0, 0, 0]  + fixed_stencil[0, 0, 2, 2] 
+        fixed_central_coeff = fixed_stencil[0, 0, 1, 1] # + fixed_stencil[0, 0, 0, 0]  + fixed_stencil[0, 0, 2, 2]
         u_conv_fixed = F.conv2d(u, fixed_stencil, padding=0)
         u_conv_fixed = F.pad(u_conv_fixed, (1, 1, 1, 1), "constant", 0)
         if self.trainable:
-            trainable_stencil = (1 / h**2) * self.trainable_stencil[0, self.n_operations, :, :].to(self.device).unsqueeze(0).unsqueeze(0)
+            trainable_stencil = (1 / h**2) * ((1 - self.gamma[self.n_operations]) * self.fixed_stencil + \
+                                          self.gamma[self.n_operations] * self.rotating_part) #self.trainable_stencil[0, self.n_operations, :, :].to(self.device).unsqueeze(0).unsqueeze(0)
             trainable_central_coeff = trainable_stencil[0, 0, 1, 1]
             u_conv_trainable = F.conv2d(u, trainable_stencil, padding=0)
             u_conv_trainable = F.pad(u_conv_trainable, (1, 1, 1, 1), "constant", 0)
-            u = u + ( 1 - self.trainable_weight) * omega * (f - u_conv_fixed) / fixed_central_coeff + self.trainable_weight * omega * (f - u_conv_trainable) / trainable_central_coeff
+            u = u + ( 1 - self.trainable_weight) * omega * (f - u_conv_fixed) / fixed_central_coeff + \
+                self.trainable_weight * omega * (f - u_conv_trainable) / trainable_central_coeff
         else:
             u = u + omega * (f - u_conv_fixed) / fixed_central_coeff
         return u
@@ -63,7 +77,7 @@ class Solver(nn.Module):
             u_conv_fixed = F.pad(u_conv_fixed, (1, 1, 1, 1), "constant", 0)
             u = u + ((f - u_conv_fixed) / fixed_central_coeff).mul(self.trainable_omega[self.n_operations, i])
         return u
-    
+
     def restrict(self, u):
         u = F.interpolate(u, scale_factor=0.5, mode='bilinear', align_corners=True)
         return u
@@ -129,7 +143,7 @@ class Solver(nn.Module):
         u = torch.zeros_like(self.f).to(self.device)
         conv_holder = F.conv2d(u, (1 / (1 / np.shape(u)[-1])**2) * self.fixed_stencil, padding=0)
         conv_holder = F.pad(conv_holder, (1, 1, 1, 1), "constant", 0)
-        res = torch.sum(torch.abs(self.f - conv_holder))/torch.sum(torch.abs(self.f)) 
+        res = torch.sum(torch.abs(self.f - conv_holder))/torch.sum(torch.abs(self.f))
         prevres = res
         iter = 0
         convfactorlist = []
@@ -138,14 +152,14 @@ class Solver(nn.Module):
             u = self.flex_cycle(u)
             conv_holder = F.conv2d(u, (1 / (1 / np.shape(u)[-1])**2) * self.fixed_stencil, padding=0)
             conv_holder = F.pad(conv_holder, (1, 1, 1, 1), "constant", 0)
-            res = torch.sum(torch.abs(self.f - conv_holder))/torch.sum(torch.abs(self.f)) 
+            res = torch.sum(torch.abs(self.f - conv_holder))/torch.sum(torch.abs(self.f))
             resratio = res / prevres
             convfactorlist.append(resratio)
             prevres = res
             # print(f'Iteration: {iter}; Residual: {res}; Conv Factor: {resratio}')
             iter += 1
         end_time = time.time()
-        # print(f'solve time: {end_time - start_time}, convergence factor: {torch.mean(torch.stack(convfactorlist))}') 
+        # print(f'solve time: {end_time - start_time}, convergence factor: {torch.mean(torch.stack(convfactorlist))}')
         return u, res, end_time - start_time, torch.mean(torch.stack(convfactorlist)).item(), iter
 
     def forward(self, f, tol, optimizer):
@@ -159,8 +173,8 @@ class Solver(nn.Module):
         optimizer.zero_grad()
         with torch.enable_grad():
             u, res, time, conv_factor, iter = self.solve_poisson(tol)
-        return u, res, time, conv_factor, iter, self.trainable_stencil, self.trainable_weight, self.trainable_omega
-    
+        return u, res, time, conv_factor, iter, self.trainable_stencil, self.trainable_weight, self.gamma
+
     def save(self, checkpoint_path: str, epoch: int):
         save_dir: str = os.path.join(checkpoint_path, 'pth')
         os.makedirs(save_dir, exist_ok=True)
